@@ -40,154 +40,87 @@ pub enum SubCommand {
     },
 }
 
-pub fn parse_args() -> CliConfig {
-    let matches = Command::new("Process Filter")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about(env!("CARGO_PKG_DESCRIPTION"))
-        .subcommand_required(false)
-        .arg_required_else_help(false)
-        .subcommand(
-            Command::new("windows/get")
-                .about("Get window information including size and position")
-                .arg(
-                    Arg::new("pid")
-                        .short('p')
-                        .long("pid")
-                        .value_name("PID")
-                        .help("Filter by process ID")
-                )
-                .arg(
-                    Arg::new("name")
-                        .short('n')
-                        .long("name")
-                        .value_name("NAME")
-                        .help("Filter by process name (contains)")
-                )
-                .arg(
-                    Arg::new("title")
-                        .short('t')
-                        .long("title")
-                        .value_name("TITLE")
-                        .help("Filter by window title (contains)")
-                )
-                .arg(
-                    Arg::new("format")
-                        .short('f')
-                        .long("format")
-                        .value_name("FORMAT")
-                        .value_parser(clap::value_parser!(OutputFormat))
-                        .default_value("table")
-                        .help("Output format")
-                )
+// 统一的字段提取函数
+fn extract_filter_args(matches: &clap::ArgMatches) -> (Option<String>, Option<String>, Option<String>) {
+    let pid = matches.get_one::<String>("pid").map(|s| s.to_string());
+    let name = matches.get_one::<String>("name").map(|s| s.to_string());
+    let title = matches.get_one::<String>("title").map(|s| s.to_string());
+    (pid, name, title)
+}
+
+// 构建windows/get子命令
+fn build_windows_get_command() -> Command {
+    Command::new("windows/get")
+        .about("Get window information including size and position")
+        .arg(
+            Arg::new("pid")
+                .short('p')
+                .long("pid")
+                .value_name("PID")
+                .help("Filter by process ID")
         )
-        .subcommand(
-            Command::new("windows/minimize")
-                .about("Minimize windows")
-                .arg(
-                    Arg::new("pid")
-                        .short('p')
-                        .long("pid")
-                        .value_name("PID")
-                        .help("Filter by process ID")
-                )
-                .arg(
-                    Arg::new("name")
-                        .short('n')
-                        .long("name")
-                        .value_name("NAME")
-                        .help("Filter by process name (contains)")
-                )
-                .arg(
-                    Arg::new("title")
-                        .short('t')
-                        .long("title")
-                        .value_name("TITLE")
-                        .help("Filter by window title (contains)")
-                )
-                .arg(
-                    Arg::new("all")
-                        .short('a')
-                        .long("all")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Minimize all matching windows")
-                )
+        .arg(
+            Arg::new("name")
+                .short('n')
+                .long("name")
+                .value_name("NAME")
+                .help("Filter by process name (contains)")
         )
-        .subcommand(
-            Command::new("windows/maximize")
-                .about("Maximize windows")
-                .arg(
-                    Arg::new("pid")
-                        .short('p')
-                        .long("pid")
-                        .value_name("PID")
-                        .help("Filter by process ID")
-                )
-                .arg(
-                    Arg::new("name")
-                        .short('n')
-                        .long("name")
-                        .value_name("NAME")
-                        .help("Filter by process name (contains)")
-                )
-                .arg(
-                    Arg::new("title")
-                        .short('t')
-                        .long("title")
-                        .value_name("TITLE")
-                        .help("Filter by window title (contains)")
-                )
-                .arg(
-                    Arg::new("all")
-                        .short('a')
-                        .long("all")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Maximize all matching windows")
-                )
+        .arg(
+            Arg::new("title")
+                .short('t')
+                .long("title")
+                .value_name("TITLE")
+                .help("Filter by window title (contains)")
         )
-        .subcommand(
-            Command::new("windows/restore")
-                .about("Restore windows to normal state")
-                .arg(
-                    Arg::new("pid")
-                        .short('p')
-                        .long("pid")
-                        .value_name("PID")
-                        .help("Filter by process ID")
-                )
-                .arg(
-                    Arg::new("name")
-                        .short('n')
-                        .long("name")
-                        .value_name("NAME")
-                        .help("Filter by process name (contains)")
-                )
-                .arg(
-                    Arg::new("title")
-                        .short('t')
-                        .long("title")
-                        .value_name("TITLE")
-                        .help("Filter by window title (contains)")
-                )
-                .arg(
-                    Arg::new("all")
-                        .short('a')
-                        .long("all")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Restore all matching windows")
-                )
+        .arg(
+            Arg::new("format")
+                .short('f')
+                .long("format")
+                .value_name("FORMAT")
+                .value_parser(clap::value_parser!(OutputFormat))
+                .default_value("table")
+                .help("Output format")
         )
-        // 为未来扩展预留
-        .subcommand(
-            Command::new("windows/set")
-                .about("Set window properties (future)")
-                .arg(Arg::new("pid").required(true))
+}
+
+// 构建窗口操作子命令的通用函数
+fn build_window_operation_command(name: &'static str, about: &'static str) -> Command {
+    Command::new(name)
+        .about(about)
+        .arg(
+            Arg::new("pid")
+                .short('p')
+                .long("pid")
+                .value_name("PID")
+                .help("Filter by process ID")
         )
-        .subcommand(
-            Command::new("windows/move")
-                .about("Move window position (future)")
-                .arg(Arg::new("pid").required(true))
+        .arg(
+            Arg::new("name")
+                .short('n')
+                .long("name")
+                .value_name("NAME")
+                .help("Filter by process name (contains)")
         )
+        .arg(
+            Arg::new("title")
+                .short('t')
+                .long("title")
+                .value_name("TITLE")
+                .help("Filter by window title (contains)")
+        )
+        .arg(
+            Arg::new("all")
+                .short('a')
+                .long("all")
+                .action(clap::ArgAction::SetTrue)
+                .help(format!("{} all matching windows", about.split_whitespace().next().unwrap_or("Operate on")))
+        )
+}
+
+// 构建主命令的通用参数
+fn build_common_args(command: Command) -> Command {
+    command
         .arg(
             Arg::new("pid")
                 .short('p')
@@ -238,36 +171,26 @@ pub fn parse_args() -> CliConfig {
                 .action(clap::ArgAction::SetTrue)
                 .help("Show detailed information")
         )
-        .get_matches();
+}
 
-    let subcommand = if let Some(matches) = matches.subcommand_matches("windows/get") {
-        Some(SubCommand::WindowsGet {
-            pid: matches.get_one::<String>("pid").map(|s| s.to_string()),
-            name: matches.get_one::<String>("name").map(|s| s.to_string()),
-            title: matches.get_one::<String>("title").map(|s| s.to_string()),
-            format: matches.get_one::<OutputFormat>("format").unwrap().clone(),
-        })
+// 处理子命令匹配的辅助函数
+fn handle_subcommand_matches(matches: &clap::ArgMatches) -> Option<SubCommand> {
+    if let Some(matches) = matches.subcommand_matches("windows/get") {
+        let (pid, name, title) = extract_filter_args(matches);
+        let format = matches.get_one::<OutputFormat>("format").unwrap().clone();
+        Some(SubCommand::WindowsGet { pid, name, title, format })
     } else if let Some(matches) = matches.subcommand_matches("windows/minimize") {
-        Some(SubCommand::WindowsMinimize {
-            pid: matches.get_one::<String>("pid").map(|s| s.to_string()),
-            name: matches.get_one::<String>("name").map(|s| s.to_string()),
-            title: matches.get_one::<String>("title").map(|s| s.to_string()),
-            all: matches.get_flag("all"),
-        })
+        let (pid, name, title) = extract_filter_args(matches);
+        let all = matches.get_flag("all");
+        Some(SubCommand::WindowsMinimize { pid, name, title, all })
     } else if let Some(matches) = matches.subcommand_matches("windows/maximize") {
-        Some(SubCommand::WindowsMaximize {
-            pid: matches.get_one::<String>("pid").map(|s| s.to_string()),
-            name: matches.get_one::<String>("name").map(|s| s.to_string()),
-            title: matches.get_one::<String>("title").map(|s| s.to_string()),
-            all: matches.get_flag("all"),
-        })
+        let (pid, name, title) = extract_filter_args(matches);
+        let all = matches.get_flag("all");
+        Some(SubCommand::WindowsMaximize { pid, name, title, all })
     } else if let Some(matches) = matches.subcommand_matches("windows/restore") {
-        Some(SubCommand::WindowsRestore {
-            pid: matches.get_one::<String>("pid").map(|s| s.to_string()),
-            name: matches.get_one::<String>("name").map(|s| s.to_string()),
-            title: matches.get_one::<String>("title").map(|s| s.to_string()),
-            all: matches.get_flag("all"),
-        })
+        let (pid, name, title) = extract_filter_args(matches);
+        let all = matches.get_flag("all");
+        Some(SubCommand::WindowsRestore { pid, name, title, all })
     } else if let Some(_matches) = matches.subcommand_matches("windows/set") {
         eprintln!("windows/set command is not implemented yet");
         std::process::exit(1);
@@ -276,12 +199,43 @@ pub fn parse_args() -> CliConfig {
         std::process::exit(1);
     } else {
         None
-    };
+    }
+}
 
+pub fn parse_args() -> CliConfig {
+    let matches = build_common_args(
+        Command::new("Process Filter")
+            .version(env!("CARGO_PKG_VERSION"))
+            .author(env!("CARGO_PKG_AUTHORS"))
+            .about(env!("CARGO_PKG_DESCRIPTION"))
+            .subcommand_required(false)
+            .arg_required_else_help(false)
+    )
+    .subcommand(build_windows_get_command())
+    .subcommand(build_window_operation_command("windows/minimize", "Minimize windows"))
+    .subcommand(build_window_operation_command("windows/maximize", "Maximize windows"))
+    .subcommand(build_window_operation_command("windows/restore", "Restore windows to normal state"))
+    // 为未来扩展预留
+    .subcommand(
+        Command::new("windows/set")
+            .about("Set window properties (future)")
+            .arg(Arg::new("pid").required(true))
+    )
+    .subcommand(
+        Command::new("windows/move")
+            .about("Move window position (future)")
+            .arg(Arg::new("pid").required(true))
+    )
+    .get_matches();
+
+    let subcommand = handle_subcommand_matches(&matches);
+
+    let (pid_filter, name_filter, title_filter) = extract_filter_args(&matches);
+    
     CliConfig {
-        pid_filter: matches.get_one::<String>("pid").map(|s| s.to_string()),
-        name_filter: matches.get_one::<String>("name").map(|s| s.to_string()),
-        title_filter: matches.get_one::<String>("title").map(|s| s.to_string()),
+        pid_filter,
+        name_filter,
+        title_filter,
         has_window_filter: matches.get_flag("has_window"),
         no_window_filter: matches.get_flag("no_window"),
         format: matches.get_one::<OutputFormat>("format").unwrap().clone(),
