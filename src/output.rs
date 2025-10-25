@@ -1,5 +1,4 @@
-use serde::Serialize;
-use crate::ProcessInfo;
+use crate::types::{ProcessInfo, ProcessOutput};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum OutputFormat {
@@ -9,29 +8,6 @@ pub enum OutputFormat {
     Csv,
     Simple,
     Detailed,
-}
-
-#[derive(Serialize)]
-pub struct ProcessOutput {
-    pub pid: String,
-    pub name: String,
-    pub title: String,
-    pub memory_usage: u64,
-    pub memory_usage_mb: f64,
-    pub has_window: bool,
-}
-
-impl From<&ProcessInfo> for ProcessOutput {
-    fn from(process: &ProcessInfo) -> Self {
-        ProcessOutput {
-            pid: process.pid.clone(),
-            name: process.name.clone(),
-            title: process.title.clone(),
-            memory_usage: process.memory_usage,
-            memory_usage_mb: (process.memory_usage as f64) / 1024.0 / 1024.0,
-            has_window: process.has_window,
-        }
-    }
 }
 
 pub fn display_processes(
@@ -161,9 +137,22 @@ fn display_detailed(processes: &[&ProcessInfo]) -> Result<(), Box<dyn std::error
 }
 
 pub fn truncate_string(s: &str, max_length: usize) -> String {
-    if s.len() <= max_length {
+    if s.chars().count() <= max_length {
         s.to_string()
     } else {
-        format!("{}...", &s[..max_length.saturating_sub(3)])
+        // 使用字符迭代器来安全地截断字符串
+        let mut result = String::new();
+        let mut count = 0;
+        
+        for c in s.chars() {
+            if count + c.len_utf8() <= max_length.saturating_sub(3) {
+                result.push(c);
+                count += 1;
+            } else {
+                break;
+            }
+        }
+        
+        format!("{}...", result)
     }
 }

@@ -46,10 +46,52 @@ pscan/
 ├── Cargo.lock          # Dependency version locking
 ├── README.md           # Project documentation (Chinese)
 ├── README.en.md        # Project documentation (English)
-└── src/
-    ├── main.rs         # Main program entry
-    └── output.rs       # Output format processing module
+└── src/                # source code
 ```
+
+## Module Dependency Diagram
+
+### Visual Dependency Flow
+```
+┌─────────┐    ┌─────────┐    ┌──────────┐
+│  main   │───▶│   cli   │───▶│  output  │
+└─────────┘    └─────────┘    └──────────┘
+     │              │              │
+     ▼              ▼              ▼
+┌─────────┐    ┌─────────┐    ┌──────────┐
+│process  │───▶│ types   │◀───│  output  │
+└─────────┘    └─────────┘    └──────────┘
+     │
+     ▼
+┌─────────┐
+│ window  │
+└─────────┘
+```
+
+Detailed Dependency Table
+| Module | Dependencies | Used By |
+|------|------------|----------------|
+| **main.rs** | cli, process, output, types | (Entry Point) |
+| **cli.rs** | output::OutputFormat | main.rs |
+| **process.rs** | types::ProcessInfo, window | main.rs |
+| **output.rs** | types::{ProcessInfo, ProcessOutput} | main.rs, cli.rs |
+| **types.rs** | (None) | main.rs, process.rs, output.rs |
+| **window.rs** | (None) | process.rs |
+
+### Functional Responsibilities
+- **main.rs**: Coordinates the entire application workflow
+- **cli.rs**: Parses command line arguments and configuration
+- **process.rs**: Enumerates, filters, and manages process information
+- **window.rs**: Platform-specific window detection functionality
+- **output.rs**: Multiple format data output and display
+- **types.rs**: Defines core data structures and conversions
+
+### Key Features
+1. **No Circular Dependencies**: All dependencies are unidirectional
+2. **Clear Hierarchy**: Clear layers from bottom (window/types) to top (main)
+3. **Separation of Responsibilities**: Each module has clear single responsibility
+4. **Easy Testing**: Loose coupling between modules facilitates unit testing
+
 
 ## Installation Guide
 

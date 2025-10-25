@@ -45,10 +45,52 @@ pscan/
 ├── Cargo.toml          # 项目配置和依赖管理
 ├── Cargo.lock          # 依赖版本锁定
 ├── README.md           # 项目说明文档
-└── src/
-    ├── main.rs         # 主程序入口
-    └── output.rs       # 输出格式处理模块
+└── src/                # 源码
 ```
+
+## 模块依赖关系图
+
+### 可视化依赖流向
+```
+┌─────────┐    ┌─────────┐    ┌──────────┐
+│  main   │───▶│   cli   │───▶│  output  │
+└─────────┘    └─────────┘    └──────────┘
+     │              │              │
+     ▼              ▼              ▼
+┌─────────┐    ┌─────────┐    ┌──────────┐
+│process  │───▶│ types   │◀───│  output  │
+└─────────┘    └─────────┘    └──────────┘
+     │
+     ▼
+┌─────────┐
+│ window  │
+└─────────┘
+```
+
+### 详细依赖关系表
+| 模块 | 依赖的模块 | 被哪些模块依赖 |
+|------|------------|----------------|
+| **main.rs** | cli, process, output, types | (入口点) |
+| **cli.rs** | output::OutputFormat | main.rs |
+| **process.rs** | types::ProcessInfo, window | main.rs |
+| **output.rs** | types::{ProcessInfo, ProcessOutput} | main.rs, cli.rs |
+| **types.rs** | (无) | main.rs, process.rs, output.rs |
+| **window.rs** | (无) | process.rs |
+
+### 功能职责说明
+- **main.rs**: 协调整个应用程序流程
+- **cli.rs**: 解析命令行参数和配置
+- **process.rs**: 枚举、过滤和管理进程信息  
+- **window.rs**: 平台相关的窗口检测功能
+- **output.rs**: 多种格式的数据输出和显示
+- **types.rs**: 定义核心数据结构和转换
+
+### 关键特点
+1. **无循环依赖**: 所有依赖都是单向的
+2. **层次清晰**: 从底层(window/types)到高层(main)的清晰层次
+3. **职责分离**: 每个模块有明确的单一职责
+4. **易于测试**: 模块间松耦合，便于单元测试
+
 
 ## 安装指南
 
