@@ -14,7 +14,7 @@ on:
       enable_release:
         description: 'Enable GitHub Release creation'
         required: false
-        default: false
+        default: true
         type: boolean
 env:
   BINARY_NAME: ${{ github.event.repository.name }}
