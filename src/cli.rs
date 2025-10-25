@@ -1,3 +1,4 @@
+// src/cli.rs
 use clap::{Arg, Command};
 use crate::output::OutputFormat;
 
@@ -114,7 +115,7 @@ fn build_window_operation_command(name: &'static str, about: &'static str) -> Co
                 .short('a')
                 .long("all")
                 .action(clap::ArgAction::SetTrue)
-                .help(format!("{} all matching windows", about.split_whitespace().next().unwrap_or("Operate on")))
+                .help("Apply to all matching windows")
         )
 }
 
