@@ -8,7 +8,7 @@ use std::process::exit;
 use output::{OutputFormat, display_processes, display_windows};
 use cli::{parse_args, SubCommand};
 use process::{get_processes, filter_processes};
-use window::get_all_windows_with_size;
+use window::{get_all_windows_with_size, manipulation};
 use types::WindowInfo;
 
 fn main() {
@@ -19,6 +19,27 @@ fn main() {
             // Handle windows/get subcommand
             if let Err(e) = handle_windows_get_command(pid, name, title, format) {
                 eprintln!("windows/get command error: {}", e);
+                exit(1);
+            }
+        }
+        Some(SubCommand::WindowsMinimize { pid, name, title, all }) => {
+            // Handle windows/minimize subcommand
+            if let Err(e) = handle_windows_minimize_command(pid, name, title, all) {
+                eprintln!("windows/minimize command error: {}", e);
+                exit(1);
+            }
+        }
+        Some(SubCommand::WindowsMaximize { pid, name, title, all }) => {
+            // Handle windows/maximize subcommand
+            if let Err(e) = handle_windows_maximize_command(pid, name, title, all) {
+                eprintln!("windows/maximize command error: {}", e);
+                exit(1);
+            }
+        }
+        Some(SubCommand::WindowsRestore { pid, name, title, all }) => {
+            // Handle windows/restore subcommand
+            if let Err(e) = handle_windows_restore_command(pid, name, title, all) {
+                eprintln!("windows/restore command error: {}", e);
                 exit(1);
             }
         }
@@ -88,6 +109,72 @@ fn handle_windows_get_command(
     // Convert &Vec<&WindowInfo> to &[WindowInfo] by dereferencing
     let windows_slice: Vec<WindowInfo> = filtered_windows.iter().map(|&w| (*w).clone()).collect();
     display_windows(&windows_slice, &process_names, format)
+}
+
+fn handle_windows_minimize_command(
+    pid_filter: Option<String>,
+    name_filter: Option<String>,
+    title_filter: Option<String>,
+    all: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Get process names for filtering
+    let processes = get_processes();
+    let process_names: Vec<(u32, String)> = processes
+        .iter()
+        .map(|p| (p.pid.parse().unwrap_or(0), p.name.clone()))
+        .collect();
+
+    match manipulation::minimize_windows(&pid_filter, &name_filter, &title_filter, &process_names, all) {
+        Ok(count) => {
+            println!("Successfully minimized {} window(s)", count);
+            Ok(())
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
+fn handle_windows_maximize_command(
+    pid_filter: Option<String>,
+    name_filter: Option<String>,
+    title_filter: Option<String>,
+    all: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Get process names for filtering
+    let processes = get_processes();
+    let process_names: Vec<(u32, String)> = processes
+        .iter()
+        .map(|p| (p.pid.parse().unwrap_or(0), p.name.clone()))
+        .collect();
+
+    match manipulation::maximize_windows(&pid_filter, &name_filter, &title_filter, &process_names, all) {
+        Ok(count) => {
+            println!("Successfully maximized {} window(s)", count);
+            Ok(())
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
+fn handle_windows_restore_command(
+    pid_filter: Option<String>,
+    name_filter: Option<String>,
+    title_filter: Option<String>,
+    all: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Get process names for filtering
+    let processes = get_processes();
+    let process_names: Vec<(u32, String)> = processes
+        .iter()
+        .map(|p| (p.pid.parse().unwrap_or(0), p.name.clone()))
+        .collect();
+
+    match manipulation::restore_windows(&pid_filter, &name_filter, &title_filter, &process_names, all) {
+        Ok(count) => {
+            println!("Successfully restored {} window(s)", count);
+            Ok(())
+        }
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn handle_process_command(config: cli::CliConfig) {
