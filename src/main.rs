@@ -6,16 +6,16 @@ mod window;
 mod output;
 mod platform;
 mod sorting;
-mod utils;  // 新增工具模块
+mod utils;
 
 use std::process::exit;
 use output::{OutputFormat, display_processes, display_windows};
 use cli::{parse_args, SubCommand};
 use sorting::{SortOrder, PositionSort};
 use process::{get_processes, filter_processes};
-use window::{get_all_windows_with_size, find_windows};
+use window::{get_all_windows_with_size, find_windows};  // 移除 WindowHandle 导入
 use types::WindowInfo;
-use utils::{parse_indices, validate_position_parameters, calculate_positions};  // 使用工具函数
+use utils::{parse_indices, validate_position_parameters, calculate_positions};
 
 fn main() {
     let config = parse_args();

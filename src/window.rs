@@ -1,12 +1,19 @@
-// use crate::types::{WindowInfo, WindowRect};
+// src/window.rs
+// 简化的窗口模块，只提供向后兼容的函数
+use crate::platform;
 
-pub use crate::platform::{find_windows, get_all_windows_with_size};
-
-// 保持向后兼容的函数
+/// 获取所有窗口的PID和标题（保持向后兼容）
 pub fn get_all_windows() -> Vec<(u32, String)> {
-    get_all_windows_with_size()
+    platform::get_all_windows_with_size()
         .into_iter()
         .map(|window| (window.pid, window.title))
         .collect()
 }
-// 删除原来的 manipulation 模块，功能已移动到 platform 模块
+
+/// 重新导出平台接口的主要功能
+#[allow(unused_imports)]
+pub use platform::{
+    get_all_windows_with_size,
+    find_windows,
+    WindowHandle,
+};

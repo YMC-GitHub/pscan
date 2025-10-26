@@ -1,46 +1,57 @@
 // src/platform/windows.rs
-use crate::types::{WindowInfo, WindowRect};
-use super::WindowHandle;
-use std::ffi::OsString;
-use std::os::windows::ffi::OsStringExt;
 use windows::Win32::Foundation::{HWND, BOOL, LPARAM, RECT};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowThreadProcessId, IsWindowVisible, GetWindowTextW, 
     GetWindowRect, ShowWindow, SW_MINIMIZE, SW_MAXIMIZE, SW_RESTORE,
     SetWindowPos, HWND_TOP, SWP_NOZORDER, SWP_NOSIZE
 };
+use std::ffi::OsString;
+use std::os::windows::ffi::OsStringExt;
 
-pub struct PlatformWindowHandle {
-    pub hwnd: HWND,
+use super::{WindowHandle, PlatformData};
+use crate::types::{WindowInfo, WindowRect};
+use crate::platform::interface::PlatformWindow;  // 添加这行导入
+
+/// Windows 平台特定的窗口数据
+#[derive(Debug, Clone)]
+pub struct WindowsWindowData {
+    pub hwnd: isize, // 使用 isize 而不是 HWND 来避免外部类型依赖
 }
 
-impl PlatformWindowHandle {
+impl WindowsWindowData {
+    pub fn new(hwnd: HWND) -> Self {
+        Self { hwnd: hwnd.0 }
+    }
+
+    fn as_hwnd(&self) -> HWND {
+        HWND(self.hwnd)
+    }
+
     pub fn minimize(&self) -> Result<(), String> {
         unsafe {
-            ShowWindow(self.hwnd, SW_MINIMIZE);
+            ShowWindow(self.as_hwnd(), SW_MINIMIZE);
         }
         Ok(())
     }
 
     pub fn maximize(&self) -> Result<(), String> {
         unsafe {
-            ShowWindow(self.hwnd, SW_MAXIMIZE);
+            ShowWindow(self.as_hwnd(), SW_MAXIMIZE);
         }
         Ok(())
     }
 
     pub fn restore(&self) -> Result<(), String> {
         unsafe {
-            ShowWindow(self.hwnd, SW_RESTORE);
+            ShowWindow(self.as_hwnd(), SW_RESTORE);
         }
         Ok(())
     }
 
-    // 添加位置设置实现
     pub fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
         unsafe {
             if SetWindowPos(
-                self.hwnd,
+                self.as_hwnd(),
                 HWND_TOP,
                 x,
                 y,
@@ -52,6 +63,25 @@ impl PlatformWindowHandle {
             }
         }
         Ok(())
+    }
+}
+
+// 修复这里：直接使用 PlatformWindow trait，而不是 super::PlatformWindow
+impl PlatformWindow for WindowsWindowData {
+    fn minimize(&self) -> Result<(), String> {
+        self.minimize()
+    }
+
+    fn maximize(&self) -> Result<(), String> {
+        self.maximize()
+    }
+
+    fn restore(&self) -> Result<(), String> {
+        self.restore()
+    }
+
+    fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
+        self.set_position(x, y)
     }
 }
 
@@ -96,11 +126,12 @@ pub fn find_windows(
         if IsWindowVisible(hwnd).into() {
             if let Some((pid, title)) = get_window_pid_and_title(hwnd) {
                 unsafe {
-                    (*windows_ptr).push(WindowHandle {
-                        platform_handle: PlatformWindowHandle { hwnd },
+                    let window_data = WindowsWindowData::new(hwnd);
+                    (*windows_ptr).push(WindowHandle::new(
                         pid,
                         title,
-                    });
+                        PlatformData::Windows(window_data)
+                    ));
                 }
             }
         }
@@ -118,7 +149,7 @@ pub fn find_windows(
     apply_window_filters(windows, pid_filter, name_filter, title_filter, process_names)
 }
 
-// 辅助函数
+// 辅助函数保持不变
 unsafe fn get_window_info(hwnd: HWND) -> Option<WindowInfo> {
     let (pid, title) = get_window_pid_and_title(hwnd)?;
     

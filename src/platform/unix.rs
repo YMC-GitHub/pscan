@@ -1,11 +1,17 @@
 // src/platform/unix.rs
 use crate::types::{WindowInfo, WindowRect};
-use super::WindowHandle;
+use super::{WindowHandle, PlatformData};
+use crate::platform::interface::PlatformWindow;  // 添加这行导入
 
-// Unix 平台的简化实现
-pub struct PlatformWindowHandle;
+/// Unix 平台特定的窗口数据
+#[derive(Debug, Clone)]
+pub struct UnixWindowData;
 
-impl PlatformWindowHandle {
+impl UnixWindowData {
+    pub fn new() -> Self {
+        Self
+    }
+
     pub fn minimize(&self) -> Result<(), String> {
         Err("Window operations not supported on this platform".to_string())
     }
@@ -18,9 +24,27 @@ impl PlatformWindowHandle {
         Err("Window operations not supported on this platform".to_string())
     }
 
-    // 添加位置设置空实现
     pub fn set_position(&self, _x: i32, _y: i32) -> Result<(), String> {
         Err("Window position setting not supported on this platform".to_string())
+    }
+}
+
+// 修复这里：直接使用 PlatformWindow trait
+impl PlatformWindow for UnixWindowData {
+    fn minimize(&self) -> Result<(), String> {
+        self.minimize()
+    }
+
+    fn maximize(&self) -> Result<(), String> {
+        self.maximize()
+    }
+
+    fn restore(&self) -> Result<(), String> {
+        self.restore()
+    }
+
+    fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
+        self.set_position(x, y)
     }
 }
 

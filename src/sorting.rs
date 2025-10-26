@@ -101,7 +101,7 @@ pub fn apply_window_sorting(
 
 /// 对 WindowHandle 进行排序（当没有位置信息时使用）
 pub fn apply_window_handle_sorting(
-    windows: &mut [crate::platform::WindowHandle], 
+    windows: &mut [crate::platform::WindowHandle],  // 使用正确的路径
     sort_pid: &SortOrder, 
     sort_position: &PositionSort
 ) {
