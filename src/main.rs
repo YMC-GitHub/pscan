@@ -4,12 +4,13 @@ mod cli;
 mod process;
 mod window;
 mod output;
+mod platform;
 
 use std::process::exit;
 use output::{OutputFormat, display_processes, display_windows};
 use cli::{parse_args, SubCommand};
 use process::{get_processes, filter_processes};
-use window::{get_all_windows_with_size, manipulation};
+use window::{get_all_windows_with_size, find_windows, WindowHandle};
 use types::WindowInfo;
 
 fn main() {
@@ -138,8 +139,8 @@ fn execute_window_operation(
     process_names: &[(u32, String)],
     all: bool,
 ) -> Result<usize, String> {
-    // 查找匹配的窗口
-    let windows = manipulation::find_windows(pid_filter, name_filter, title_filter, process_names);
+    // 使用平台抽象层查找匹配的窗口
+    let windows = find_windows(pid_filter, name_filter, title_filter, process_names);
     
     // 验证窗口数量
     if windows.is_empty() {
@@ -184,7 +185,7 @@ fn handle_windows_get_command(
     title_filter: Option<String>,
     format: OutputFormat,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Get all windows with size information
+    // 使用平台抽象层获取所有窗口及其尺寸信息
     let windows = get_all_windows_with_size();
     
     // Get process names for display
@@ -307,5 +308,28 @@ mod tests {
         
         assert_eq!(op1.as_str(), op2.as_str());
         assert_eq!(op1.as_str(), op3.as_str());
+    }
+
+    #[test]
+    fn test_window_operation_debug() {
+        // Test Debug trait implementation
+        let minimize = WindowOperation::Minimize;
+        let maximize = WindowOperation::Maximize;
+        let restore = WindowOperation::Restore;
+
+        // This should compile and run without panicking
+        format!("{:?}", minimize);
+        format!("{:?}", maximize);
+        format!("{:?}", restore);
+    }
+
+    #[test]
+    fn test_window_operation_copy() {
+        // Test that the enum implements Copy trait
+        let op1 = WindowOperation::Minimize;
+        let op2 = op1; // This should work if Copy is implemented
+        
+        // Both should be usable
+        assert_eq!(op1.as_str(), op2.as_str());
     }
 }

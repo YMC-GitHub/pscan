@@ -29,3 +29,7 @@ windows = { version = "0.52", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_Threading",
 ] }
+
+# future：Unix platform support
+[target.'cfg(unix)'.dependencies]
+# add x11 or wayland 
