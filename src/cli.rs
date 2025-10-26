@@ -20,6 +20,8 @@ pub enum SubCommand {
         name: Option<String>,
         title: Option<String>,
         format: OutputFormat,
+        sort_pid: SortOrder,
+        sort_position: PositionSort,
     },
     WindowsMinimize {
         pid: Option<String>,
@@ -39,6 +41,63 @@ pub enum SubCommand {
         title: Option<String>,
         all: bool,
     },
+}
+
+#[derive(Debug, Clone)]
+pub enum SortOrder {
+    Ascending,
+    Descending,
+    None,
+}
+
+impl Default for SortOrder {
+    fn default() -> Self {
+        SortOrder::None
+    }
+}
+
+impl std::str::FromStr for SortOrder {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "1" => Ok(SortOrder::Ascending),
+            "-1" => Ok(SortOrder::Descending),
+            "0" => Ok(SortOrder::None),
+            _ => Err(format!("Invalid sort order: {}. Use 1 (ascending), -1 (descending), or 0 (none)", s)),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PositionSort {
+    pub x_order: SortOrder,
+    pub y_order: SortOrder,
+}
+
+impl Default for PositionSort {
+    fn default() -> Self {
+        PositionSort {
+            x_order: SortOrder::Ascending,
+            y_order: SortOrder::Ascending,
+        }
+    }
+}
+
+impl std::str::FromStr for PositionSort {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split('|').collect();
+        if parts.len() != 2 {
+            return Err("Position sort format should be X_ORDER|Y_ORDER, e.g., 1|-1".to_string());
+        }
+
+        let x_order = parts[0].parse()?;
+        let y_order = parts[1].parse()?;
+
+        Ok(PositionSort { x_order, y_order })
+    }
 }
 
 // 统一的字段提取函数
@@ -82,6 +141,25 @@ fn build_windows_get_command() -> Command {
                 .value_parser(clap::value_parser!(OutputFormat))
                 .default_value("table")
                 .help("Output format")
+        )
+        .arg(
+            Arg::new("sort-pid")
+                .long("sort-pid")
+                .value_name("ORDER")
+                .num_args(1)
+                .allow_hyphen_values(true)  // 允许以连字符开头的值
+                .value_parser(["1", "-1", "0"])
+                .default_value("0")
+                .help("Sort by PID: 1 (ascending), -1 (descending), 0 (none)")
+        )
+        .arg(
+            Arg::new("sort-position")
+                .long("sort-position")
+                .value_name("X_ORDER|Y_ORDER")
+                .num_args(1)
+                .allow_hyphen_values(true)  // 允许以连字符开头的值
+                .default_value("0|0")
+                .help("Sort by position: X_ORDER|Y_ORDER, e.g., 1|-1 for X ascending, Y descending")
         )
 }
 
@@ -179,7 +257,36 @@ fn handle_subcommand_matches(matches: &clap::ArgMatches) -> Option<SubCommand> {
     if let Some(matches) = matches.subcommand_matches("windows/get") {
         let (pid, name, title) = extract_filter_args(matches);
         let format = matches.get_one::<OutputFormat>("format").unwrap().clone();
-        Some(SubCommand::WindowsGet { pid, name, title, format })
+        
+        // 手动解析排序参数
+        let sort_pid = match matches.get_one::<String>("sort-pid").map(|s| s.as_str()) {
+            Some("1") => SortOrder::Ascending,
+            Some("-1") => SortOrder::Descending,
+            Some("0") | None => SortOrder::None,
+            Some(_) => SortOrder::None, // 不应该发生，因为有 value_parser
+        };
+        
+        let sort_position = match matches.get_one::<String>("sort-position").map(|s| s.as_str()) {
+            Some(s) => {
+                match s.parse() {
+                    Ok(pos) => pos,
+                    Err(_) => {
+                        eprintln!("Warning: Invalid position sort format '{}', using default", s);
+                        PositionSort::default()
+                    }
+                }
+            }
+            None => PositionSort::default(),
+        };
+        
+        Some(SubCommand::WindowsGet { 
+            pid, 
+            name, 
+            title, 
+            format,
+            sort_pid,
+            sort_position,
+        })
     } else if let Some(matches) = matches.subcommand_matches("windows/minimize") {
         let (pid, name, title) = extract_filter_args(matches);
         let all = matches.get_flag("all");

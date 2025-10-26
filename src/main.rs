@@ -8,18 +8,18 @@ mod platform;
 
 use std::process::exit;
 use output::{OutputFormat, display_processes, display_windows};
-use cli::{parse_args, SubCommand};
+use cli::{parse_args, SubCommand, SortOrder, PositionSort};
 use process::{get_processes, filter_processes};
-use window::{get_all_windows_with_size, find_windows, WindowHandle};
+use window::{get_all_windows_with_size, find_windows};
 use types::WindowInfo;
 
 fn main() {
     let config = parse_args();
 
     match config.subcommand {
-        Some(SubCommand::WindowsGet { pid, name, title, format }) => {
+        Some(SubCommand::WindowsGet { pid, name, title, format, sort_pid, sort_position }) => {
             // Handle windows/get subcommand
-            if let Err(e) = handle_windows_get_command(pid, name, title, format) {
+            if let Err(e) = handle_windows_get_command(pid, name, title, format, sort_pid, sort_position) {
                 eprintln!("windows/get command error: {}", e);
                 exit(1);
             }
@@ -178,12 +178,14 @@ fn execute_window_operation(
     Ok(count)
 }
 
-// 保持独立的windows/get处理函数（逻辑不同）
+// 更新 windows/get 处理函数
 fn handle_windows_get_command(
     pid_filter: Option<String>,
     name_filter: Option<String>,
     title_filter: Option<String>,
     format: OutputFormat,
+    sort_pid: SortOrder,
+    sort_position: PositionSort,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // 使用平台抽象层获取所有窗口及其尺寸信息
     let windows = get_all_windows_with_size();
@@ -196,7 +198,7 @@ fn handle_windows_get_command(
         .collect();
     
     // Filter windows
-    let filtered_windows: Vec<&WindowInfo> = windows
+    let mut filtered_windows: Vec<WindowInfo> = windows
         .iter()
         .filter(|window| {
             // PID filter
@@ -228,6 +230,7 @@ fn handle_windows_get_command(
 
             true
         })
+        .cloned()
         .collect();
 
     if filtered_windows.is_empty() {
@@ -235,9 +238,64 @@ fn handle_windows_get_command(
         exit(1);
     }
 
-    // Convert &Vec<&WindowInfo> to &[WindowInfo] by dereferencing
-    let windows_slice: Vec<WindowInfo> = filtered_windows.iter().map(|&w| (*w).clone()).collect();
-    display_windows(&windows_slice, &process_names, format)
+    // 打印排序前的 PID 列表（调试用）
+    if std::env::var("DEBUG_SORT").is_ok() {
+        println!("Before sorting:");
+        for window in &filtered_windows {
+            println!("  PID: {}, Title: {}", window.pid, window.title);
+        }
+    }
+
+    // 应用排序
+    apply_window_sorting(&mut filtered_windows, &sort_pid, &sort_position);
+
+    // 打印排序后的 PID 列表（调试用）
+    if std::env::var("DEBUG_SORT").is_ok() {
+        println!("After sorting:");
+        for window in &filtered_windows {
+            println!("  PID: {}, Title: {}", window.pid, window.title);
+        }
+    }
+
+    // Convert to slice for display
+    display_windows(&filtered_windows, &process_names, format)
+}
+
+// 应用窗口排序 - 修复后的版本
+fn apply_window_sorting(windows: &mut [WindowInfo], sort_pid: &SortOrder, sort_position: &PositionSort) {
+    windows.sort_by(|a, b| {
+        let mut cmp = std::cmp::Ordering::Equal;
+        
+        // 首先按位置排序（如果指定了）
+        if !matches!(sort_position.x_order, SortOrder::None) || !matches!(sort_position.y_order, SortOrder::None) {
+            // X 坐标排序
+            if !matches!(sort_position.x_order, SortOrder::None) {
+                cmp = a.rect.x.cmp(&b.rect.x);
+                if let SortOrder::Descending = sort_position.x_order {
+                    cmp = cmp.reverse();
+                }
+            }
+            
+            // 如果 X 坐标相同，则按 Y 坐标排序
+            if cmp == std::cmp::Ordering::Equal && !matches!(sort_position.y_order, SortOrder::None) {
+                cmp = a.rect.y.cmp(&b.rect.y);
+                if let SortOrder::Descending = sort_position.y_order {
+                    cmp = cmp.reverse();
+                }
+            }
+        }
+        
+        // 如果位置相同或未指定位置排序，则按 PID 排序
+        if cmp == std::cmp::Ordering::Equal {
+            match sort_pid {
+                SortOrder::Ascending => cmp = a.pid.cmp(&b.pid),
+                SortOrder::Descending => cmp = b.pid.cmp(&a.pid),
+                SortOrder::None => {} // 保持相等
+            }
+        }
+        
+        cmp
+    });
 }
 
 // 进程列表处理函数（保持独立）
@@ -271,6 +329,8 @@ fn handle_process_command(config: cli::CliConfig) {
 mod tests {
     use super::*;
     use output::truncate_string;
+    use cli::{SortOrder, PositionSort};
+    use types::WindowRect;
 
     #[test]
     fn test_truncate_string() {
@@ -331,5 +391,73 @@ mod tests {
         
         // Both should be usable
         assert_eq!(op1.as_str(), op2.as_str());
+    }
+
+    #[test]
+    fn test_apply_window_sorting() {
+        let mut windows = vec![
+            WindowInfo {
+                pid: 100,
+                title: "Window C".to_string(),
+                rect: WindowRect::new(300, 200, 800, 600),
+            },
+            WindowInfo {
+                pid: 200,
+                title: "Window A".to_string(),
+                rect: WindowRect::new(100, 100, 800, 600),
+            },
+            WindowInfo {
+                pid: 150,
+                title: "Window B".to_string(),
+                rect: WindowRect::new(200, 150, 800, 600),
+            },
+        ];
+
+        // Test PID ascending sort
+        apply_window_sorting(&mut windows, &SortOrder::Ascending, &PositionSort::default());
+        assert_eq!(windows[0].pid, 100);
+        assert_eq!(windows[1].pid, 150);
+        assert_eq!(windows[2].pid, 200);
+
+        // Test PID descending sort
+        apply_window_sorting(&mut windows, &SortOrder::Descending, &PositionSort::default());
+        assert_eq!(windows[0].pid, 200);
+        assert_eq!(windows[1].pid, 150);
+        assert_eq!(windows[2].pid, 100);
+
+        // Test position sort (X ascending, Y ascending)
+        let position_sort = PositionSort {
+            x_order: SortOrder::Ascending,
+            y_order: SortOrder::Ascending,
+        };
+        apply_window_sorting(&mut windows, &SortOrder::None, &position_sort);
+        assert_eq!(windows[0].rect.x, 100);
+        assert_eq!(windows[1].rect.x, 200);
+        assert_eq!(windows[2].rect.x, 300);
+
+        // Test combined sort (position first, then PID)
+        let mut windows_combined = vec![
+            WindowInfo {
+                pid: 100,
+                title: "Window A".to_string(),
+                rect: WindowRect::new(100, 100, 800, 600),
+            },
+            WindowInfo {
+                pid: 200,
+                title: "Window B".to_string(),
+                rect: WindowRect::new(100, 100, 800, 600),
+            },
+            WindowInfo {
+                pid: 150,
+                title: "Window C".to_string(),
+                rect: WindowRect::new(200, 150, 800, 600),
+            },
+        ];
+
+        apply_window_sorting(&mut windows_combined, &SortOrder::Ascending, &position_sort);
+        // Windows with same position should be sorted by PID
+        assert_eq!(windows_combined[0].pid, 100);
+        assert_eq!(windows_combined[1].pid, 200);
+        assert_eq!(windows_combined[2].pid, 150);
     }
 }
