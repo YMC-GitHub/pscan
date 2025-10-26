@@ -42,6 +42,11 @@ impl WindowHandle {
     pub fn restore(&self) -> Result<(), String> {
         self.platform_handle.restore()
     }
+
+    // 添加位置设置方法
+    pub fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
+        self.platform_handle.set_position(x, y)
+    }
 }
 
 // 公共接口函数 - 委托给平台实现

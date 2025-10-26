@@ -17,6 +17,11 @@ impl PlatformWindowHandle {
     pub fn restore(&self) -> Result<(), String> {
         Err("Window operations not supported on this platform".to_string())
     }
+
+    // 添加位置设置空实现
+    pub fn set_position(&self, _x: i32, _y: i32) -> Result<(), String> {
+        Err("Window position setting not supported on this platform".to_string())
+    }
 }
 
 pub fn get_all_windows_with_size() -> Vec<WindowInfo> {

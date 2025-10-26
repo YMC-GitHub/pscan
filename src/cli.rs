@@ -41,6 +41,20 @@ pub enum SubCommand {
         title: Option<String>,
         all: bool,
     },
+    WindowsPositionSet {
+        pid: Option<String>,
+        name: Option<String>,
+        title: Option<String>,
+        all: bool,
+        position: Option<String>,
+        index: Option<String>,
+        layout: Option<String>,
+        x_start: Option<String>,
+        y_start: Option<String>,
+        x_step: Option<String>,
+        y_step: Option<String>,
+        sort_position: PositionSort,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -197,6 +211,100 @@ fn build_window_operation_command(name: &'static str, about: &'static str) -> Co
         )
 }
 
+// 构建位置设置子命令
+fn build_windows_position_set_command() -> Command {
+    Command::new("windows/position/set")
+        .about("Set window position with various layout options")
+        .arg(
+            Arg::new("pid")
+                .short('p')
+                .long("pid")
+                .value_name("PID")
+                .help("Filter by process ID")
+        )
+        .arg(
+            Arg::new("name")
+                .short('n')
+                .long("name")
+                .value_name("NAME")
+                .help("Filter by process name (contains)")
+        )
+        .arg(
+            Arg::new("title")
+                .short('t')
+                .long("title")
+                .value_name("TITLE")
+                .help("Filter by window title (contains)")
+        )
+        .arg(
+            Arg::new("all")
+                .short('a')
+                .long("all")
+                .action(clap::ArgAction::SetTrue)
+                .help("Apply to all matching windows")
+        )
+        .arg(
+            Arg::new("position")
+                .long("position")
+                .value_name("X,Y")
+                .num_args(1)
+                .help("Set window position (e.g., \"100,100\")")
+        )
+        .arg(
+            Arg::new("index")
+                .long("index")
+                .value_name("INDICES")
+                .num_args(1)
+                .default_value("")
+                .help("Window indices to set (e.g., \"1,2,3\"), empty means all")
+        )
+        .arg(
+            Arg::new("layout")
+                .long("layout")
+                .value_name("POSITIONS")
+                .num_args(1)
+                .default_value("")
+                .help("Multiple positions layout (e.g., \"100,100,150,120,200,140\")")
+        )
+        .arg(
+            Arg::new("x_start")
+                .long("x-start")
+                .value_name("X")
+                .num_args(1)
+                .help("Starting X position for multiple windows")
+        )
+        .arg(
+            Arg::new("y_start")
+                .long("y-start")
+                .value_name("Y")
+                .num_args(1)
+                .help("Starting Y position for multiple windows")
+        )
+        .arg(
+            Arg::new("x_step")
+                .long("x-step")
+                .value_name("STEP")
+                .num_args(1)
+                .help("X step for multiple windows")
+        )
+        .arg(
+            Arg::new("y_step")
+                .long("y-step")
+                .value_name("STEP")
+                .num_args(1)
+                .help("Y step for multiple windows")
+        )
+        .arg(
+            Arg::new("sort_position")
+                .long("sort-position")
+                .value_name("X_ORDER|Y_ORDER")
+                .num_args(1)
+                .allow_hyphen_values(true)
+                .default_value("1|1")
+                .help("Sort by position: X_ORDER|Y_ORDER, e.g., 1|-1 for X ascending, Y descending")
+        )
+}
+
 // 构建主命令的通用参数
 fn build_common_args(command: Command) -> Command {
     command
@@ -299,6 +407,44 @@ fn handle_subcommand_matches(matches: &clap::ArgMatches) -> Option<SubCommand> {
         let (pid, name, title) = extract_filter_args(matches);
         let all = matches.get_flag("all");
         Some(SubCommand::WindowsRestore { pid, name, title, all })
+    } else if let Some(matches) = matches.subcommand_matches("windows/position/set") {
+        let (pid, name, title) = extract_filter_args(matches);
+        let all = matches.get_flag("all");
+        let position = matches.get_one::<String>("position").map(|s| s.to_string());
+        let index = matches.get_one::<String>("index").map(|s| s.to_string());
+        let layout = matches.get_one::<String>("layout").map(|s| s.to_string());
+        let x_start = matches.get_one::<String>("x_start").map(|s| s.to_string());
+        let y_start = matches.get_one::<String>("y_start").map(|s| s.to_string());
+        let x_step = matches.get_one::<String>("x_step").map(|s| s.to_string());
+        let y_step = matches.get_one::<String>("y_step").map(|s| s.to_string());
+        
+        let sort_position = match matches.get_one::<String>("sort_position").map(|s| s.as_str()) {
+            Some(s) => {
+                match s.parse() {
+                    Ok(pos) => pos,
+                    Err(_) => {
+                        eprintln!("Warning: Invalid position sort format '{}', using default", s);
+                        PositionSort::default()
+                    }
+                }
+            }
+            None => PositionSort::default(),
+        };
+        
+        Some(SubCommand::WindowsPositionSet { 
+            pid, 
+            name, 
+            title, 
+            all,
+            position,
+            index,
+            layout,
+            x_start,
+            y_start,
+            x_step,
+            y_step,
+            sort_position,
+        })
     } else if let Some(_matches) = matches.subcommand_matches("windows/set") {
         eprintln!("windows/set command is not implemented yet");
         std::process::exit(1);
@@ -323,6 +469,7 @@ pub fn parse_args() -> CliConfig {
     .subcommand(build_window_operation_command("windows/minimize", "Minimize windows"))
     .subcommand(build_window_operation_command("windows/maximize", "Maximize windows"))
     .subcommand(build_window_operation_command("windows/restore", "Restore windows to normal state"))
+    .subcommand(build_windows_position_set_command())
     // 为未来扩展预留
     .subcommand(
         Command::new("windows/set")

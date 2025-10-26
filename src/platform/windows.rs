@@ -6,7 +6,8 @@ use std::os::windows::ffi::OsStringExt;
 use windows::Win32::Foundation::{HWND, BOOL, LPARAM, RECT};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowThreadProcessId, IsWindowVisible, GetWindowTextW, 
-    GetWindowRect, ShowWindow, SW_MINIMIZE, SW_MAXIMIZE, SW_RESTORE
+    GetWindowRect, ShowWindow, SW_MINIMIZE, SW_MAXIMIZE, SW_RESTORE,
+    SetWindowPos, HWND_TOP, SWP_NOZORDER, SWP_NOSIZE
 };
 
 pub struct PlatformWindowHandle {
@@ -31,6 +32,24 @@ impl PlatformWindowHandle {
     pub fn restore(&self) -> Result<(), String> {
         unsafe {
             ShowWindow(self.hwnd, SW_RESTORE);
+        }
+        Ok(())
+    }
+
+    // 添加位置设置实现
+    pub fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
+        unsafe {
+            if SetWindowPos(
+                self.hwnd,
+                HWND_TOP,
+                x,
+                y,
+                0,  // 宽度不变
+                0,  // 高度不变
+                SWP_NOZORDER | SWP_NOSIZE
+            ).is_err() {
+                return Err("Failed to set window position".to_string());
+            }
         }
         Ok(())
     }
