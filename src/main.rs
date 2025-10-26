@@ -1,3 +1,4 @@
+// src/main.rs
 mod types;
 mod cli;
 mod process;
@@ -59,11 +60,41 @@ fn main() {
     }
 }
 
-// 窗口操作类型枚举
+// 窗口操作类型枚举 - 提供类型安全
+#[derive(Debug, Clone, Copy)]
 enum WindowOperation {
     Minimize,
     Maximize,
     Restore,
+}
+
+impl WindowOperation {
+    // 获取操作名称（动词形式）
+    fn as_str(&self) -> &'static str {
+        match self {
+            WindowOperation::Minimize => "minimize",
+            WindowOperation::Maximize => "maximize",
+            WindowOperation::Restore => "restore",
+        }
+    }
+    
+    // 获取过去式形式（用于成功消息）
+    fn past_tense(&self) -> &'static str {
+        match self {
+            WindowOperation::Minimize => "minimized",
+            WindowOperation::Maximize => "maximized",
+            WindowOperation::Restore => "restored",
+        }
+    }
+    
+    // 获取首字母大写形式（用于操作日志）
+    fn capitalized(&self) -> &'static str {
+        match self {
+            WindowOperation::Minimize => "Minimized",
+            WindowOperation::Maximize => "Maximized",
+            WindowOperation::Restore => "Restored",
+        }
+    }
 }
 
 // 统一的窗口操作处理函数
@@ -81,33 +112,72 @@ fn handle_window_operation_command(
         .map(|p| (p.pid.parse().unwrap_or(0), p.name.clone()))
         .collect();
 
-    // 根据操作类型调用相应的函数
-    let result = match operation {
-        WindowOperation::Minimize => {
-            manipulation::minimize_windows(&pid_filter, &name_filter, &title_filter, &process_names, all)
-        }
-        WindowOperation::Maximize => {
-            manipulation::maximize_windows(&pid_filter, &name_filter, &title_filter, &process_names, all)
-        }
-        WindowOperation::Restore => {
-            manipulation::restore_windows(&pid_filter, &name_filter, &title_filter, &process_names, all)
-        }
-    };
-
-    match result {
+    // 使用统一的执行器
+    match execute_window_operation(
+        operation,
+        &pid_filter,
+        &name_filter,
+        &title_filter,
+        &process_names,
+        all
+    ) {
         Ok(count) => {
-            let operation_name = match operation {
-                WindowOperation::Minimize => "minimized",
-                WindowOperation::Maximize => "maximized",
-                WindowOperation::Restore => "restored",
-            };
-            println!("Successfully {} {} window(s)", operation_name, count);
+            println!("Successfully {} {} window(s)", operation.past_tense(), count);
             Ok(())
         }
         Err(e) => Err(e.into()),
     }
 }
 
+// 统一的窗口操作执行器 - 消除重复逻辑
+fn execute_window_operation(
+    operation: WindowOperation,
+    pid_filter: &Option<String>,
+    name_filter: &Option<String>,
+    title_filter: &Option<String>,
+    process_names: &[(u32, String)],
+    all: bool,
+) -> Result<usize, String> {
+    // 查找匹配的窗口
+    let windows = manipulation::find_windows(pid_filter, name_filter, title_filter, process_names);
+    
+    // 验证窗口数量
+    if windows.is_empty() {
+        return Err("No matching windows found".to_string());
+    }
+
+    if !all && windows.len() > 1 {
+        return Err(format!(
+            "Multiple windows found ({}). Use --all to {} all matching windows", 
+            windows.len(), operation.as_str()
+        ));
+    }
+
+    // 执行操作
+    let mut count = 0;
+    for window in windows {
+        let result = match operation {
+            WindowOperation::Minimize => window.minimize(),
+            WindowOperation::Maximize => window.maximize(),
+            WindowOperation::Restore => window.restore(),
+        };
+
+        match result {
+            Ok(()) => {
+                println!("{}: {} (PID: {})", operation.capitalized(), window.title, window.pid);
+                count += 1;
+            }
+            Err(e) => {
+                eprintln!("Failed to {} window {} (PID: {}): {}", 
+                         operation.as_str(), window.title, window.pid, e);
+            }
+        }
+    }
+
+    Ok(count)
+}
+
+// 保持独立的windows/get处理函数（逻辑不同）
 fn handle_windows_get_command(
     pid_filter: Option<String>,
     name_filter: Option<String>,
@@ -169,6 +239,7 @@ fn handle_windows_get_command(
     display_windows(&windows_slice, &process_names, format)
 }
 
+// 进程列表处理函数（保持独立）
 fn handle_process_command(config: cli::CliConfig) {
     // Get process list
     let processes = get_processes();
@@ -205,5 +276,36 @@ mod tests {
         assert_eq!(truncate_string("hello", 5), "hello");
         assert_eq!(truncate_string("hello world", 8), "hello...");
         assert_eq!(truncate_string("hi", 10), "hi");
+    }
+
+    #[test]
+    fn test_window_operation_enum() {
+        // Test operation name mappings
+        let minimize = WindowOperation::Minimize;
+        let maximize = WindowOperation::Maximize;
+        let restore = WindowOperation::Restore;
+
+        assert_eq!(minimize.as_str(), "minimize");
+        assert_eq!(maximize.as_str(), "maximize");
+        assert_eq!(restore.as_str(), "restore");
+
+        assert_eq!(minimize.past_tense(), "minimized");
+        assert_eq!(maximize.past_tense(), "maximized");
+        assert_eq!(restore.past_tense(), "restored");
+
+        assert_eq!(minimize.capitalized(), "Minimized");
+        assert_eq!(maximize.capitalized(), "Maximized");
+        assert_eq!(restore.capitalized(), "Restored");
+    }
+
+    #[test]
+    fn test_window_operation_clone() {
+        // Test that the enum can be cloned (needed for function parameters)
+        let op1 = WindowOperation::Minimize;
+        let op2 = op1;
+        let op3 = op1.clone();
+        
+        assert_eq!(op1.as_str(), op2.as_str());
+        assert_eq!(op1.as_str(), op3.as_str());
     }
 }

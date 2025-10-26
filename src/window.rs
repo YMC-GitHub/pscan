@@ -171,7 +171,7 @@ pub mod manipulation {
             );
         }
 
-        // Apply filters - explicitly specify the type for the closure parameter
+        // Apply filters
         windows.into_iter()
             .filter(|window: &WindowHandle| {
                 // PID filter
@@ -206,128 +206,20 @@ pub mod manipulation {
             .collect()
     }
 
-    pub fn minimize_windows(
-        pid_filter: &Option<String>,
-        name_filter: &Option<String>,
-        title_filter: &Option<String>,
-        process_names: &[(u32, String)],
-        all: bool,
-    ) -> Result<usize, String> {
-        let windows = find_windows(pid_filter, name_filter, title_filter, process_names);
-        
-        if windows.is_empty() {
-            return Err("No matching windows found".to_string());
-        }
-
-        if !all && windows.len() > 1 {
-            return Err(format!("Multiple windows found ({}). Use --all to minimize all matching windows", windows.len()));
-        }
-
-        let mut count = 0;
-        for window in windows {
-            if let Err(e) = window.minimize() {
-                eprintln!("Failed to minimize window {} (PID: {}): {}", window.title, window.pid, e);
-            } else {
-                println!("Minimized: {} (PID: {})", window.title, window.pid);
-                count += 1;
-            }
-        }
-
-        Ok(count)
-    }
-
-    pub fn maximize_windows(
-        pid_filter: &Option<String>,
-        name_filter: &Option<String>,
-        title_filter: &Option<String>,
-        process_names: &[(u32, String)],
-        all: bool,
-    ) -> Result<usize, String> {
-        let windows = find_windows(pid_filter, name_filter, title_filter, process_names);
-        
-        if windows.is_empty() {
-            return Err("No matching windows found".to_string());
-        }
-
-        if !all && windows.len() > 1 {
-            return Err(format!("Multiple windows found ({}). Use --all to maximize all matching windows", windows.len()));
-        }
-
-        let mut count = 0;
-        for window in windows {
-            if let Err(e) = window.maximize() {
-                eprintln!("Failed to maximize window {} (PID: {}): {}", window.title, window.pid, e);
-            } else {
-                println!("Maximized: {} (PID: {})", window.title, window.pid);
-                count += 1;
-            }
-        }
-
-        Ok(count)
-    }
-
-    pub fn restore_windows(
-        pid_filter: &Option<String>,
-        name_filter: &Option<String>,
-        title_filter: &Option<String>,
-        process_names: &[(u32, String)],
-        all: bool,
-    ) -> Result<usize, String> {
-        let windows = find_windows(pid_filter, name_filter, title_filter, process_names);
-        
-        if windows.is_empty() {
-            return Err("No matching windows found".to_string());
-        }
-
-        if !all && windows.len() > 1 {
-            return Err(format!("Multiple windows found ({}). Use --all to restore all matching windows", windows.len()));
-        }
-
-        let mut count = 0;
-        for window in windows {
-            if let Err(e) = window.restore() {
-                eprintln!("Failed to restore window {} (PID: {}): {}", window.title, window.pid, e);
-            } else {
-                println!("Restored: {} (PID: {})", window.title, window.pid);
-                count += 1;
-            }
-        }
-
-        Ok(count)
-    }
+    // 删除原来的 minimize_windows, maximize_windows, restore_windows 函数
+    // 这些功能现在由 main.rs 中的统一执行器处理
 }
 
 #[cfg(not(windows))]
 pub mod manipulation {
     use super::*;
-
-    pub fn minimize_windows(
+    // 非Windows平台的空实现
+    pub fn find_windows(
         _pid_filter: &Option<String>,
         _name_filter: &Option<String>,
         _title_filter: &Option<String>,
         _process_names: &[(u32, String)],
-        _all: bool,
-    ) -> Result<usize, String> {
-        Err("Window manipulation is only supported on Windows".to_string())
-    }
-
-    pub fn maximize_windows(
-        _pid_filter: &Option<String>,
-        _name_filter: &Option<String>,
-        _title_filter: &Option<String>,
-        _process_names: &[(u32, String)],
-        _all: bool,
-    ) -> Result<usize, String> {
-        Err("Window manipulation is only supported on Windows".to_string())
-    }
-
-    pub fn restore_windows(
-        _pid_filter: &Option<String>,
-        _name_filter: &Option<String>,
-        _title_filter: &Option<String>,
-        _process_names: &[(u32, String)],
-        _all: bool,
-    ) -> Result<usize, String> {
-        Err("Window manipulation is only supported on Windows".to_string())
+    ) -> Vec<WindowHandle> {
+        Vec::new()
     }
 }
