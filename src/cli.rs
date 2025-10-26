@@ -1,6 +1,7 @@
 // src/cli.rs
 use clap::{Arg, Command};
 use crate::output::OutputFormat;
+use crate::sorting::{SortOrder, PositionSort};  // 从 sorting 模块导入
 
 pub struct CliConfig {
     pub pid_filter: Option<String>,
@@ -57,62 +58,7 @@ pub enum SubCommand {
     },
 }
 
-#[derive(Debug, Clone)]
-pub enum SortOrder {
-    Ascending,
-    Descending,
-    None,
-}
-
-impl Default for SortOrder {
-    fn default() -> Self {
-        SortOrder::None
-    }
-}
-
-impl std::str::FromStr for SortOrder {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "1" => Ok(SortOrder::Ascending),
-            "-1" => Ok(SortOrder::Descending),
-            "0" => Ok(SortOrder::None),
-            _ => Err(format!("Invalid sort order: {}. Use 1 (ascending), -1 (descending), or 0 (none)", s)),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct PositionSort {
-    pub x_order: SortOrder,
-    pub y_order: SortOrder,
-}
-
-impl Default for PositionSort {
-    fn default() -> Self {
-        PositionSort {
-            x_order: SortOrder::Ascending,
-            y_order: SortOrder::Ascending,
-        }
-    }
-}
-
-impl std::str::FromStr for PositionSort {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split('|').collect();
-        if parts.len() != 2 {
-            return Err("Position sort format should be X_ORDER|Y_ORDER, e.g., 1|-1".to_string());
-        }
-
-        let x_order = parts[0].parse()?;
-        let y_order = parts[1].parse()?;
-
-        Ok(PositionSort { x_order, y_order })
-    }
-}
+// 删除原来的 SortOrder 和 PositionSort 定义，因为它们已移动到 sorting.rs
 
 // 统一的字段提取函数
 fn extract_filter_args(matches: &clap::ArgMatches) -> (Option<String>, Option<String>, Option<String>) {
