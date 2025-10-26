@@ -1,7 +1,7 @@
 // src/platform/unix.rs
 use crate::types::{WindowInfo, WindowRect};
 use super::{WindowHandle, PlatformData};
-use crate::platform::interface::PlatformWindow;  // 添加这行导入
+use crate::platform::interface::PlatformWindow;
 
 /// Unix 平台特定的窗口数据
 #[derive(Debug, Clone)]
@@ -12,39 +12,39 @@ impl UnixWindowData {
         Self
     }
 
-    pub fn minimize(&self) -> Result<(), String> {
+    pub fn minimize_impl(&self) -> Result<(), String> {
         Err("Window operations not supported on this platform".to_string())
     }
 
-    pub fn maximize(&self) -> Result<(), String> {
+    pub fn maximize_impl(&self) -> Result<(), String> {
         Err("Window operations not supported on this platform".to_string())
     }
 
-    pub fn restore(&self) -> Result<(), String> {
+    pub fn restore_impl(&self) -> Result<(), String> {
         Err("Window operations not supported on this platform".to_string())
     }
 
-    pub fn set_position(&self, _x: i32, _y: i32) -> Result<(), String> {
+    pub fn set_position_impl(&self, _x: i32, _y: i32) -> Result<(), String> {
         Err("Window position setting not supported on this platform".to_string())
     }
 }
 
-// 修复这里：直接使用 PlatformWindow trait
+// 修复这里：避免递归调用
 impl PlatformWindow for UnixWindowData {
     fn minimize(&self) -> Result<(), String> {
-        self.minimize()
+        self.minimize_impl()
     }
 
     fn maximize(&self) -> Result<(), String> {
-        self.maximize()
+        self.maximize_impl()
     }
 
     fn restore(&self) -> Result<(), String> {
-        self.restore()
+        self.restore_impl()
     }
 
     fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
-        self.set_position(x, y)
+        self.set_position_impl(x, y)
     }
 }
 
