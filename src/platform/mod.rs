@@ -1,5 +1,5 @@
 // src/platform/mod.rs
-use crate::types::{WindowInfo, WindowRect};
+use crate::types::{WindowInfo};
 
 #[cfg(windows)]
 mod windows;
@@ -12,6 +12,7 @@ use windows as platform_impl;
 use unix as platform_impl;
 
 // 统一的平台抽象 trait
+#[allow(dead_code)]
 pub trait PlatformInterface {
     fn get_all_windows_with_size() -> Vec<WindowInfo>;
     fn find_windows(
