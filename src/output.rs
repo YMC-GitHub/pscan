@@ -1,4 +1,6 @@
+// src/output.rs
 use crate::types::{ProcessInfo, ProcessOutput, WindowInfo, WindowOutput};
+use crate::error::AppResult;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum OutputFormat {
@@ -12,7 +14,7 @@ pub enum OutputFormat {
 
 // 输出策略 trait
 trait OutputStrategy<T> {
-    fn display(&self, data: &[T]) -> Result<(), Box<dyn std::error::Error>>;
+    fn display(&self, data: &[T]) -> AppResult<()>;
 }
 
 // 进程信息输出策略
@@ -21,7 +23,7 @@ struct ProcessTableStrategy {
 }
 
 impl OutputStrategy<&ProcessInfo> for ProcessTableStrategy {
-    fn display(&self, processes: &[&ProcessInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, processes: &[&ProcessInfo]) -> AppResult<()> {
         println!("Found {} matching processes:", processes.len());
         
         if self.verbose {
@@ -71,7 +73,7 @@ impl OutputStrategy<&ProcessInfo> for ProcessTableStrategy {
 struct ProcessJsonStrategy;
 
 impl OutputStrategy<&ProcessInfo> for ProcessJsonStrategy {
-    fn display(&self, processes: &[&ProcessInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, processes: &[&ProcessInfo]) -> AppResult<()> {
         let output: Vec<ProcessOutput> = processes.iter().map(|p| ProcessOutput::from(*p)).collect();
         let json = serde_json::to_string_pretty(&output)?;
         println!("{}", json);
@@ -82,7 +84,7 @@ impl OutputStrategy<&ProcessInfo> for ProcessJsonStrategy {
 struct ProcessYamlStrategy;
 
 impl OutputStrategy<&ProcessInfo> for ProcessYamlStrategy {
-    fn display(&self, processes: &[&ProcessInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, processes: &[&ProcessInfo]) -> AppResult<()> {
         let output: Vec<ProcessOutput> = processes.iter().map(|p| ProcessOutput::from(*p)).collect();
         let yaml = serde_yaml::to_string(&output)?;
         println!("{}", yaml);
@@ -93,7 +95,7 @@ impl OutputStrategy<&ProcessInfo> for ProcessYamlStrategy {
 struct ProcessCsvStrategy;
 
 impl OutputStrategy<&ProcessInfo> for ProcessCsvStrategy {
-    fn display(&self, processes: &[&ProcessInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, processes: &[&ProcessInfo]) -> AppResult<()> {
         let mut wtr = csv::Writer::from_writer(std::io::stdout());
         
         wtr.write_record(&["PID", "Name", "Title", "MemoryUsage", "MemoryUsageMB", "HasWindow"])?;
@@ -118,7 +120,7 @@ impl OutputStrategy<&ProcessInfo> for ProcessCsvStrategy {
 struct ProcessSimpleStrategy;
 
 impl OutputStrategy<&ProcessInfo> for ProcessSimpleStrategy {
-    fn display(&self, processes: &[&ProcessInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, processes: &[&ProcessInfo]) -> AppResult<()> {
         for process in processes {
             let memory_mb = process.memory_usage as f64 / 1024.0 / 1024.0;
             println!(
@@ -136,7 +138,7 @@ impl OutputStrategy<&ProcessInfo> for ProcessSimpleStrategy {
 struct ProcessDetailedStrategy;
 
 impl OutputStrategy<&ProcessInfo> for ProcessDetailedStrategy {
-    fn display(&self, processes: &[&ProcessInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, processes: &[&ProcessInfo]) -> AppResult<()> {
         for (i, process) in processes.iter().enumerate() {
             let memory_mb = process.memory_usage as f64 / 1024.0 / 1024.0;
             println!("Process #{}:", i + 1);
@@ -158,7 +160,7 @@ struct WindowTableStrategy<'a> {
 }
 
 impl<'a> OutputStrategy<WindowInfo> for WindowTableStrategy<'a> {
-    fn display(&self, windows: &[WindowInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, windows: &[WindowInfo]) -> AppResult<()> {
         println!("Found {} windows:", windows.len());
         println!("{:<8} {:<20} {:<30} {:<15} {:<12}", 
                  "PID", "Name", "Title", "Size", "Position");
@@ -197,7 +199,7 @@ struct WindowJsonStrategy<'a> {
 }
 
 impl<'a> OutputStrategy<WindowInfo> for WindowJsonStrategy<'a> {
-    fn display(&self, windows: &[WindowInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, windows: &[WindowInfo]) -> AppResult<()> {
         let output: Vec<WindowOutput> = windows.iter()
             .map(|window| {
                 let mut output = WindowOutput::from(window);
@@ -226,7 +228,7 @@ struct WindowYamlStrategy<'a> {
 }
 
 impl<'a> OutputStrategy<WindowInfo> for WindowYamlStrategy<'a> {
-    fn display(&self, windows: &[WindowInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, windows: &[WindowInfo]) -> AppResult<()> {
         let output: Vec<WindowOutput> = windows.iter()
             .map(|window| {
                 let mut output = WindowOutput::from(window);
@@ -255,7 +257,7 @@ struct WindowCsvStrategy<'a> {
 }
 
 impl<'a> OutputStrategy<WindowInfo> for WindowCsvStrategy<'a> {
-    fn display(&self, windows: &[WindowInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, windows: &[WindowInfo]) -> AppResult<()> {
         let mut wtr = csv::Writer::from_writer(std::io::stdout());
         
         wtr.write_record(&["PID", "Name", "Title", "X", "Y", "Width", "Height", "Dimensions"])?;
@@ -295,7 +297,7 @@ struct WindowSimpleStrategy<'a> {
 }
 
 impl<'a> OutputStrategy<WindowInfo> for WindowSimpleStrategy<'a> {
-    fn display(&self, windows: &[WindowInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, windows: &[WindowInfo]) -> AppResult<()> {
         for window in windows {
             let process_name = self.get_process_name(window.pid);
             
@@ -329,7 +331,7 @@ struct WindowDetailedStrategy<'a> {
 }
 
 impl<'a> OutputStrategy<WindowInfo> for WindowDetailedStrategy<'a> {
-    fn display(&self, windows: &[WindowInfo]) -> Result<(), Box<dyn std::error::Error>> {
+    fn display(&self, windows: &[WindowInfo]) -> AppResult<()> {
         for (i, window) in windows.iter().enumerate() {
             let process_name = self.get_process_name(window.pid);
             
@@ -361,7 +363,7 @@ pub fn display_processes(
     processes: &[&ProcessInfo], 
     format: OutputFormat,
     verbose: bool
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> AppResult<()> {
     match format {
         OutputFormat::Table => ProcessTableStrategy { verbose }.display(processes),
         OutputFormat::Json => ProcessJsonStrategy.display(processes),
@@ -376,7 +378,7 @@ pub fn display_windows(
     windows: &[WindowInfo],
     process_names: &[(u32, String)],
     format: OutputFormat,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> AppResult<()> {
     match format {
         OutputFormat::Table => WindowTableStrategy { process_names }.display(windows),
         OutputFormat::Json => WindowJsonStrategy { process_names }.display(windows),

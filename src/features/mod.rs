@@ -8,6 +8,7 @@ pub use always_on_top::AlwaysOnTopFeature;
 pub use transparency::TransparencyFeature;  // 导出透明度特性
 
 use std::collections::HashMap;
+use crate::error::AppResult;
 
 /// 特性管理器
 pub struct FeatureManager {
@@ -55,7 +56,7 @@ impl FeatureManager {
     }
     
     /// 执行特性命令
-    pub fn execute(&self, subcommand: &crate::cli::SubCommand) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn execute(&self, subcommand: &crate::cli::SubCommand) -> AppResult<()> {
         for feature in self.features.values() {
             if let Err(e) = feature.execute(subcommand) {
                 return Err(e);

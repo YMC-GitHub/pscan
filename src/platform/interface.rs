@@ -1,15 +1,16 @@
 // src/platform/interface.rs
 use crate::types::WindowInfo;
+use crate::error::{AppError, AppResult};
 
 /// 平台窗口句柄的通用接口
 pub trait PlatformWindow {
-    fn minimize(&self) -> Result<(), String>;
-    fn maximize(&self) -> Result<(), String>;
-    fn restore(&self) -> Result<(), String>;
-    fn set_position(&self, x: i32, y: i32) -> Result<(), String>;
-    fn set_always_on_top(&self, on_top: bool) -> Result<(), String>;
-    fn is_always_on_top(&self) -> Result<bool, String>;
-    fn set_transparency(&self, opacity: u8) -> Result<(), String>;  // 新增透明度方法
+    fn minimize(&self) -> AppResult<()>;
+    fn maximize(&self) -> AppResult<()>;
+    fn restore(&self) -> AppResult<()>;
+    fn set_position(&self, x: i32, y: i32) -> AppResult<()>;
+    fn set_always_on_top(&self, on_top: bool) -> AppResult<()>;
+    fn is_always_on_top(&self) -> AppResult<bool>;
+    fn set_transparency(&self, opacity: u8) -> AppResult<()>;
 }
 
 /// 平台接口 trait
@@ -38,31 +39,31 @@ impl WindowHandle {
         Self { pid, title, platform_data }
     }
 
-    pub fn minimize(&self) -> Result<(), String> {
+    pub fn minimize(&self) -> AppResult<()> {
         self.platform_data.minimize()
     }
 
-    pub fn maximize(&self) -> Result<(), String> {
+    pub fn maximize(&self) -> AppResult<()> {
         self.platform_data.maximize()
     }
 
-    pub fn restore(&self) -> Result<(), String> {
+    pub fn restore(&self) -> AppResult<()> {
         self.platform_data.restore()
     }
 
-    pub fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
+    pub fn set_position(&self, x: i32, y: i32) -> AppResult<()> {
         self.platform_data.set_position(x, y)
     }
     
-    pub fn set_always_on_top(&self, on_top: bool) -> Result<(), String> {
+    pub fn set_always_on_top(&self, on_top: bool) -> AppResult<()> {
         self.platform_data.set_always_on_top(on_top)
     }
     
-    pub fn is_always_on_top(&self) -> Result<bool, String> {
+    pub fn is_always_on_top(&self) -> AppResult<bool> {
         self.platform_data.is_always_on_top()
     }
     
-    pub fn set_transparency(&self, opacity: u8) -> Result<(), String> {
+    pub fn set_transparency(&self, opacity: u8) -> AppResult<()> {
         self.platform_data.set_transparency(opacity)
     }
 }
@@ -77,7 +78,7 @@ pub enum PlatformData {
 }
 
 impl PlatformWindow for PlatformData {
-    fn minimize(&self) -> Result<(), String> {
+    fn minimize(&self) -> AppResult<()> {
         match self {
             #[cfg(windows)]
             PlatformData::Windows(data) => data.minimize(),
@@ -86,7 +87,7 @@ impl PlatformWindow for PlatformData {
         }
     }
 
-    fn maximize(&self) -> Result<(), String> {
+    fn maximize(&self) -> AppResult<()> {
         match self {
             #[cfg(windows)]
             PlatformData::Windows(data) => data.maximize(),
@@ -95,7 +96,7 @@ impl PlatformWindow for PlatformData {
         }
     }
 
-    fn restore(&self) -> Result<(), String> {
+    fn restore(&self) -> AppResult<()> {
         match self {
             #[cfg(windows)]
             PlatformData::Windows(data) => data.restore(),
@@ -104,7 +105,7 @@ impl PlatformWindow for PlatformData {
         }
     }
 
-    fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
+    fn set_position(&self, x: i32, y: i32) -> AppResult<()> {
         match self {
             #[cfg(windows)]
             PlatformData::Windows(data) => data.set_position(x, y),
@@ -113,7 +114,7 @@ impl PlatformWindow for PlatformData {
         }
     }
     
-    fn set_always_on_top(&self, on_top: bool) -> Result<(), String> {
+    fn set_always_on_top(&self, on_top: bool) -> AppResult<()> {
         match self {
             #[cfg(windows)]
             PlatformData::Windows(data) => data.set_always_on_top(on_top),
@@ -122,7 +123,7 @@ impl PlatformWindow for PlatformData {
         }
     }
     
-    fn is_always_on_top(&self) -> Result<bool, String> {
+    fn is_always_on_top(&self) -> AppResult<bool> {
         match self {
             #[cfg(windows)]
             PlatformData::Windows(data) => data.is_always_on_top(),
@@ -131,7 +132,7 @@ impl PlatformWindow for PlatformData {
         }
     }
     
-    fn set_transparency(&self, opacity: u8) -> Result<(), String> {
+    fn set_transparency(&self, opacity: u8) -> AppResult<()> {
         match self {
             #[cfg(windows)]
             PlatformData::Windows(data) => data.set_transparency(opacity),

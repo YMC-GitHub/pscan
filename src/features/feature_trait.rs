@@ -1,6 +1,7 @@
 // src/features/feature_trait.rs
 use clap::Command;
 use crate::cli::SubCommand;
+use crate::error::AppResult;
 
 /// 特性 trait - 所有可插拔功能都需要实现这个 trait
 pub trait Feature: Send + Sync {
@@ -17,7 +18,7 @@ pub trait Feature: Send + Sync {
     fn parse_cli(&self, matches: &clap::ArgMatches) -> Option<SubCommand>;
     
     /// 执行特性功能
-    fn execute(&self, subcommand: &SubCommand) -> Result<(), Box<dyn std::error::Error>>;
+    fn execute(&self, subcommand: &SubCommand) -> AppResult<()>;
     
     /// 检查是否支持当前平台
     fn is_supported(&self) -> bool;

@@ -3,6 +3,7 @@ use clap::{Arg, Command};
 use crate::cli::SubCommand;
 use super::feature_trait::Feature;
 use crate::platform::find_windows;
+use crate::error::{AppError, AppResult};
 
 /// 窗口置顶特性
 pub struct AlwaysOnTopFeature;
@@ -76,7 +77,7 @@ impl AlwaysOnTopFeature {
         all: bool,
         toggle: bool,
         off: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> AppResult<()> {
         // 确定目标状态
         let target_state = if off {
             Some(false)
@@ -98,14 +99,11 @@ impl AlwaysOnTopFeature {
         
         // 验证窗口数量
         if windows.is_empty() {
-            return Err("No matching windows found".to_string().into());
+            return Err(AppError::NoMatchingWindows);
         }
 
         if !all && windows.len() > 1 {
-            return Err(format!(
-                "Multiple windows found ({}). Use --all to modify all matching windows", 
-                windows.len()
-            ).into());
+            return Err(AppError::MultipleWindows(windows.len()));
         }
 
         let mut count = 0;
@@ -148,7 +146,7 @@ impl AlwaysOnTopFeature {
         }
 
         if count == 0 {
-            return Err("No windows were modified".to_string().into());
+            return Err(AppError::NoWindowsModified);
         }
 
         println!("Successfully modified {} window(s)", count);
@@ -189,7 +187,7 @@ impl Feature for AlwaysOnTopFeature {
         }
     }
     
-    fn execute(&self, subcommand: &SubCommand) -> Result<(), Box<dyn std::error::Error>> {
+    fn execute(&self, subcommand: &SubCommand) -> AppResult<()> {
         if let SubCommand::WindowsAlwaysOnTop { pid, name, title, all, toggle, off } = subcommand {
             self.handle_always_on_top(
                 pid.clone(),

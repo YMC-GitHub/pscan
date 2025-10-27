@@ -1,6 +1,5 @@
 // src/utils.rs
-// #[allow(unused_imports)]
-// use std::str::FromStr;
+use crate::error::{AppError, AppResult};
 
 /// 解析索引字符串，如 "1,2,3" -> [1, 2, 3]
 pub fn parse_indices(index_str: &str, max_index: usize) -> Vec<usize> {
@@ -30,7 +29,7 @@ pub fn validate_position_parameters(
     y_start: &Option<String>,
     x_step: &Option<String>,
     y_step: &Option<String>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let has_single_position = position.is_some();
     let has_layout = layout.as_ref().map_or(false, |s| !s.trim().is_empty());
     let has_grid = x_start.is_some() || y_start.is_some() || x_step.is_some() || y_step.is_some();
@@ -41,11 +40,15 @@ pub fn validate_position_parameters(
         .count();
 
     if method_count == 0 {
-        return Err("No position method specified. Use --position, --layout, or --x-start/--y-start with steps".to_string());
+        return Err(AppError::invalid_parameter(
+            "No position method specified. Use --position, --layout, or --x-start/--y-start with steps"
+        ));
     }
 
     if method_count > 1 {
-        return Err("Multiple position methods specified. Use only one of --position, --layout, or grid parameters".to_string());
+        return Err(AppError::invalid_parameter(
+            "Multiple position methods specified. Use only one of --position, --layout, or grid parameters"
+        ));
     }
 
     Ok(())
@@ -60,7 +63,7 @@ pub fn calculate_positions(
     y_start: &Option<String>,
     x_step: &Option<String>,
     y_step: &Option<String>,
-) -> Result<Vec<(i32, i32)>, String> {
+) -> AppResult<Vec<(i32, i32)>> {
     if let Some(pos_str) = position {
         // 单一位置模式
         let (x, y) = parse_position(pos_str)?;
@@ -86,42 +89,44 @@ pub fn calculate_positions(
 
         Ok(positions)
     } else {
-        Err("No valid position configuration found".to_string())
+        Err(AppError::invalid_parameter("No valid position configuration found"))
     }
 }
 
 /// 解析单一位置字符串 "X,Y" -> (x, y)
-pub fn parse_position(position_str: &str) -> Result<(i32, i32), String> {
+pub fn parse_position(position_str: &str) -> AppResult<(i32, i32)> {
     let parts: Vec<&str> = position_str.split(',').collect();
     if parts.len() != 2 {
-        return Err(format!("Invalid position format: {}. Expected 'X,Y'", position_str));
+        return Err(AppError::parse(format!("Invalid position format: {}. Expected 'X,Y'", position_str)));
     }
 
-    let x = parts[0].trim().parse().map_err(|_| format!("Invalid X coordinate: {}", parts[0]))?;
-    let y = parts[1].trim().parse().map_err(|_| format!("Invalid Y coordinate: {}", parts[1]))?;
+    let x = parts[0].trim().parse()
+        .map_err(|_| AppError::parse(format!("Invalid X coordinate: {}", parts[0])))?;
+    let y = parts[1].trim().parse()
+        .map_err(|_| AppError::parse(format!("Invalid Y coordinate: {}", parts[1])))?;
 
     Ok((x, y))
 }
 
 /// 解析布局字符串 "X1,Y1,X2,Y2,..." -> [(x1, y1), (x2, y2), ...]
-pub fn parse_layout(layout_str: &str, window_count: usize) -> Result<Vec<(i32, i32)>, String> {
+pub fn parse_layout(layout_str: &str, window_count: usize) -> AppResult<Vec<(i32, i32)>> {
     let coords: Vec<&str> = layout_str.split(',').collect();
     
     if coords.len() % 2 != 0 {
-        return Err(format!("Layout must have even number of coordinates, got {}", coords.len()));
+        return Err(AppError::parse(format!("Layout must have even number of coordinates, got {}", coords.len())));
     }
 
     let mut positions = Vec::new();
     for chunk in coords.chunks(2) {
         let x = chunk[0].trim().parse()
-            .map_err(|_| format!("Invalid X coordinate in layout: {}", chunk[0]))?;
+            .map_err(|_| AppError::parse(format!("Invalid X coordinate in layout: {}", chunk[0])))?;
         let y = chunk[1].trim().parse()
-            .map_err(|_| format!("Invalid Y coordinate in layout: {}", chunk[1]))?;
+            .map_err(|_| AppError::parse(format!("Invalid Y coordinate in layout: {}", chunk[1])))?;
         positions.push((x, y));
     }
 
     if positions.len() < window_count {
-        return Err(format!("Not enough positions in layout (need {}, got {})", window_count, positions.len()));
+        return Err(AppError::parse(format!("Not enough positions in layout (need {}, got {})", window_count, positions.len())));
     }
 
     // 如果提供的位置多于窗口数量，只取需要的数量

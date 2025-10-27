@@ -1,22 +1,18 @@
 // src/platform/windows.rs
-use windows::Win32::Foundation::{HWND, BOOL, LPARAM};
+use windows::Win32::Foundation::{HWND, BOOL, LPARAM, COLORREF};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowTextW, GetWindowThreadProcessId, GetWindowRect, 
     SetWindowPos, ShowWindow, IsWindowVisible, GetClassNameW, GetWindowLongW,
     SW_MINIMIZE, SW_MAXIMIZE, SW_RESTORE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
     GWL_EXSTYLE, WS_EX_TOPMOST, HWND_TOPMOST, HWND_NOTOPMOST, WS_EX_LAYERED
 };
-// 修复 SetLayeredWindowAttributes 导入
 use windows::Win32::UI::WindowsAndMessaging::SetLayeredWindowAttributes;
 use windows::Win32::UI::WindowsAndMessaging::LWA_ALPHA;
-// 修复 SetWindowLongW 导入
 use windows::Win32::UI::WindowsAndMessaging::SetWindowLongW;
-// 添加 COLORREF 导入
-// use windows::Win32::Graphics::Gdi::COLORREF;
-use windows::Win32::Foundation::COLORREF;
 
 use crate::platform::interface::PlatformWindow;
 use crate::types::{WindowInfo, WindowRect};
+use crate::error::{AppError, AppResult};
 
 /// Windows 平台特定的窗口数据
 #[derive(Debug, Clone)]
@@ -29,65 +25,65 @@ impl WindowsWindowData {
         Self { hwnd }
     }
 
-    pub fn minimize(&self) -> Result<(), String> {
+    pub fn minimize(&self) -> AppResult<()> {
         unsafe {
             let hwnd = HWND(self.hwnd);
             if !IsWindowVisible(hwnd).as_bool() {
-                return Err("Window not visible or invalid handle".to_string());
+                return Err(AppError::window_operation("Window not visible or invalid handle"));
             }
             
             let result = ShowWindow(hwnd, SW_MINIMIZE);
             if result.0 != 0 {
                 Ok(())
             } else {
-                Err("Failed to minimize window".to_string())
+                Err(AppError::window_operation("Failed to minimize window"))
             }
         }
     }
 
-    pub fn maximize(&self) -> Result<(), String> {
+    pub fn maximize(&self) -> AppResult<()> {
         unsafe {
             let hwnd = HWND(self.hwnd);
             if !IsWindowVisible(hwnd).as_bool() {
-                return Err("Window not visible or invalid handle".to_string());
+                return Err(AppError::window_operation("Window not visible or invalid handle"));
             }
             
             let result = ShowWindow(hwnd, SW_MAXIMIZE);
             if result.0 != 0 {
                 Ok(())
             } else {
-                Err("Failed to maximize window".to_string())
+                Err(AppError::window_operation("Failed to maximize window"))
             }
         }
     }
 
-    pub fn restore(&self) -> Result<(), String> {
+    pub fn restore(&self) -> AppResult<()> {
         unsafe {
             let hwnd = HWND(self.hwnd);
             if !IsWindowVisible(hwnd).as_bool() {
-                return Err("Window not visible or invalid handle".to_string());
+                return Err(AppError::window_operation("Window not visible or invalid handle"));
             }
             
             let result = ShowWindow(hwnd, SW_RESTORE);
             if result.0 != 0 {
                 Ok(())
             } else {
-                Err("Failed to restore window".to_string())
+                Err(AppError::window_operation("Failed to restore window"))
             }
         }
     }
 
-    pub fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
+    pub fn set_position(&self, x: i32, y: i32) -> AppResult<()> {
         unsafe {
             let hwnd = HWND(self.hwnd);
             if !IsWindowVisible(hwnd).as_bool() {
-                return Err("Window not visible or invalid handle".to_string());
+                return Err(AppError::window_operation("Window not visible or invalid handle"));
             }
             
             // 获取当前窗口大小
             let mut rect = std::mem::zeroed();
             if GetWindowRect(hwnd, &mut rect).is_err() {
-                return Err("Failed to get window rect".to_string());
+                return Err(AppError::platform("Failed to get window rect"));
             }
 
             let width = rect.right - rect.left;
@@ -101,16 +97,16 @@ impl WindowsWindowData {
             ).is_ok() {
                 Ok(())
             } else {
-                Err("Failed to set window position".to_string())
+                Err(AppError::window_operation("Failed to set window position"))
             }
         }
     }
 
-    pub fn set_always_on_top(&self, on_top: bool) -> Result<(), String> {
+    pub fn set_always_on_top(&self, on_top: bool) -> AppResult<()> {
         unsafe {
             let hwnd = HWND(self.hwnd);
             if !IsWindowVisible(hwnd).as_bool() {
-                return Err("Window not visible or invalid handle".to_string());
+                return Err(AppError::window_operation("Window not visible or invalid handle"));
             }
             
             let result = if on_top {
@@ -132,52 +128,51 @@ impl WindowsWindowData {
             if result.is_ok() {
                 Ok(())
             } else {
-                Err("Failed to set always on top state".to_string())
+                Err(AppError::window_operation("Failed to set always on top state"))
             }
         }
     }
     
-    pub fn is_always_on_top(&self) -> Result<bool, String> {
+    pub fn is_always_on_top(&self) -> AppResult<bool> {
         unsafe {
             let hwnd = HWND(self.hwnd);
             let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
             
             if ex_style == 0 {
-                return Err("Failed to get window style".to_string());
+                return Err(AppError::platform("Failed to get window style"));
             }
             
             Ok((ex_style & WS_EX_TOPMOST.0 as i32) != 0)
         }
     }
     
-    pub fn set_transparency(&self, opacity: u8) -> Result<(), String> {
+    pub fn set_transparency(&self, opacity: u8) -> AppResult<()> {
         unsafe {
             let hwnd = HWND(self.hwnd);
             if !IsWindowVisible(hwnd).as_bool() {
-                return Err("Window not visible or invalid handle".to_string());
+                return Err(AppError::window_operation("Window not visible or invalid handle"));
             }
             
             // 设置分层窗口样式
             let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
             if ex_style == 0 {
-                return Err("Failed to get window style".to_string());
+                return Err(AppError::platform("Failed to get window style"));
             }
             
             // 确保窗口有分层样式
             let new_style = ex_style | WS_EX_LAYERED.0 as i32;
             if SetWindowLongW(hwnd, GWL_EXSTYLE, new_style) == 0 {
-                return Err("Failed to set layered window style".to_string());
+                return Err(AppError::platform("Failed to set layered window style"));
             }
             
             // 计算透明度值 (0-255)
             let alpha = (opacity as u32 * 255) / 100;
             
-            // 设置透明度 - 修复参数类型
-            let crkey = COLORREF(0); // 方案1： 使用 use windows::Win32::Foundation 模块中的 COLORREF
-            // let crkey = 0u32; //  方案2：使用 u32 类型来替代 COLORREF，因为 SetLayeredWindowAttributes 函数的 crKey 参数实际上是一个 u32 类型的颜色键值
+            // 设置透明度
+            let crkey = COLORREF(0);
             match SetLayeredWindowAttributes(hwnd, crkey, alpha as u8, LWA_ALPHA) {
                 Ok(()) => Ok(()),
-                Err(e) => Err(format!("Failed to set window transparency: {}", e))
+                Err(e) => Err(AppError::platform(format!("Failed to set window transparency: {}", e)))
             }
         }
     }
@@ -185,31 +180,31 @@ impl WindowsWindowData {
 
 // 为 WindowsWindowData 实现 PlatformWindow trait
 impl PlatformWindow for WindowsWindowData {
-    fn minimize(&self) -> Result<(), String> {
+    fn minimize(&self) -> AppResult<()> {
         self.minimize()
     }
 
-    fn maximize(&self) -> Result<(), String> {
+    fn maximize(&self) -> AppResult<()> {
         self.maximize()
     }
 
-    fn restore(&self) -> Result<(), String> {
+    fn restore(&self) -> AppResult<()> {
         self.restore()
     }
 
-    fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
+    fn set_position(&self, x: i32, y: i32) -> AppResult<()> {
         self.set_position(x, y)
     }
     
-    fn set_always_on_top(&self, on_top: bool) -> Result<(), String> {
+    fn set_always_on_top(&self, on_top: bool) -> AppResult<()> {
         self.set_always_on_top(on_top)
     }
     
-    fn is_always_on_top(&self) -> Result<bool, String> {
+    fn is_always_on_top(&self) -> AppResult<bool> {
         self.is_always_on_top()
     }
     
-    fn set_transparency(&self, opacity: u8) -> Result<(), String> {
+    fn set_transparency(&self, opacity: u8) -> AppResult<()> {
         self.set_transparency(opacity)
     }
 }

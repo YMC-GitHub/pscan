@@ -2,6 +2,7 @@
 use crate::types::{WindowInfo, WindowRect};
 use super::{WindowHandle, PlatformData};
 use crate::platform::interface::PlatformWindow;
+use crate::error::{AppError, AppResult};
 
 /// Unix 平台特定的窗口数据
 #[derive(Debug, Clone)]
@@ -12,62 +13,62 @@ impl UnixWindowData {
         Self
     }
 
-    pub fn minimize_impl(&self) -> Result<(), String> {
-        Err("Window operations not supported on this platform".to_string())
+    pub fn minimize_impl(&self) -> AppResult<()> {
+        Err(AppError::feature_not_supported("Window operations"))
     }
 
-    pub fn maximize_impl(&self) -> Result<(), String> {
-        Err("Window operations not supported on this platform".to_string())
+    pub fn maximize_impl(&self) -> AppResult<()> {
+        Err(AppError::feature_not_supported("Window operations"))
     }
 
-    pub fn restore_impl(&self) -> Result<(), String> {
-        Err("Window operations not supported on this platform".to_string())
+    pub fn restore_impl(&self) -> AppResult<()> {
+        Err(AppError::feature_not_supported("Window operations"))
     }
 
-    pub fn set_position_impl(&self, _x: i32, _y: i32) -> Result<(), String> {
-        Err("Window position setting not supported on this platform".to_string())
+    pub fn set_position_impl(&self, _x: i32, _y: i32) -> AppResult<()> {
+        Err(AppError::feature_not_supported("Window position setting"))
     }
     
-    pub fn set_always_on_top_impl(&self, _on_top: bool) -> Result<(), String> {
-        Err("Window always on top operations not supported on this platform".to_string())
+    pub fn set_always_on_top_impl(&self, _on_top: bool) -> AppResult<()> {
+        Err(AppError::feature_not_supported("Window always on top operations"))
     }
     
-    pub fn is_always_on_top_impl(&self) -> Result<bool, String> {
-        Err("Window always on top detection not supported on this platform".to_string())
+    pub fn is_always_on_top_impl(&self) -> AppResult<bool> {
+        Err(AppError::feature_not_supported("Window always on top detection"))
     }
     
-    pub fn set_transparency_impl(&self, _opacity: u8) -> Result<(), String> {
-        Err("Window transparency operations not supported on this platform".to_string())
+    pub fn set_transparency_impl(&self, _opacity: u8) -> AppResult<()> {
+        Err(AppError::feature_not_supported("Window transparency operations"))
     }
 }
 
 // 修复这里：避免递归调用
 impl PlatformWindow for UnixWindowData {
-    fn minimize(&self) -> Result<(), String> {
+    fn minimize(&self) -> AppResult<()> {
         self.minimize_impl()
     }
 
-    fn maximize(&self) -> Result<(), String> {
+    fn maximize(&self) -> AppResult<()> {
         self.maximize_impl()
     }
 
-    fn restore(&self) -> Result<(), String> {
+    fn restore(&self) -> AppResult<()> {
         self.restore_impl()
     }
 
-    fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
+    fn set_position(&self, x: i32, y: i32) -> AppResult<()> {
         self.set_position_impl(x, y)
     }
     
-    fn set_always_on_top(&self, on_top: bool) -> Result<(), String> {
+    fn set_always_on_top(&self, on_top: bool) -> AppResult<()> {
         self.set_always_on_top_impl(on_top)
     }
     
-    fn is_always_on_top(&self) -> Result<bool, String> {
+    fn is_always_on_top(&self) -> AppResult<bool> {
         self.is_always_on_top_impl()
     }
     
-    fn set_transparency(&self, opacity: u8) -> Result<(), String> {
+    fn set_transparency(&self, opacity: u8) -> AppResult<()> {
         self.set_transparency_impl(opacity)
     }
 }

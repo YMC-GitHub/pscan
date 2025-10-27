@@ -3,6 +3,7 @@ use clap::{Arg, Command};
 use crate::cli::SubCommand;
 use super::feature_trait::Feature;
 use crate::platform::find_windows;
+use crate::error::{AppError, AppResult};
 
 /// 窗口透明度特性
 pub struct TransparencyFeature;
@@ -80,7 +81,7 @@ impl TransparencyFeature {
         all: bool,
         level: u8,
         reset: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> AppResult<()> {
         // 确定透明度级别
         let target_level = if reset { 100 } else { level };
         
@@ -96,14 +97,11 @@ impl TransparencyFeature {
         
         // 验证窗口数量
         if windows.is_empty() {
-            return Err("No matching windows found".to_string().into());
+            return Err(AppError::NoMatchingWindows);
         }
 
         if !all && windows.len() > 1 {
-            return Err(format!(
-                "Multiple windows found ({}). Use --all to modify all matching windows", 
-                windows.len()
-            ).into());
+            return Err(AppError::MultipleWindows(windows.len()));
         }
 
         let mut count = 0;
@@ -123,7 +121,7 @@ impl TransparencyFeature {
         }
 
         if count == 0 {
-            return Err("No windows were modified".to_string().into());
+            return Err(AppError::NoWindowsModified);
         }
 
         println!("Successfully modified {} window(s)", count);
@@ -164,7 +162,7 @@ impl Feature for TransparencyFeature {
         }
     }
     
-    fn execute(&self, subcommand: &SubCommand) -> Result<(), Box<dyn std::error::Error>> {
+    fn execute(&self, subcommand: &SubCommand) -> AppResult<()> {
         if let SubCommand::WindowsTransparency { pid, name, title, all, level, reset } = subcommand {
             self.handle_transparency(
                 pid.clone(),

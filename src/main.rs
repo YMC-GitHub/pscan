@@ -8,6 +8,7 @@ mod platform;
 mod sorting;
 mod utils;
 mod features;  // 新增特性模块
+mod error;     // 新增错误处理模块
 
 use std::process::exit;
 use output::{OutputFormat, display_processes, display_windows};
@@ -18,8 +19,26 @@ use window::{get_all_windows_with_size, find_windows};
 use types::WindowInfo;
 use utils::{parse_indices, validate_position_parameters, calculate_positions};
 use features::{create_default_manager, get_enabled_features};  // 新增
+use error::{AppError, AppResult};  // 新增
 
 fn main() {
+    if let Err(e) = run() {
+        eprintln!("Error: {}", e);
+        
+        // 根据错误类型决定退出码
+        let exit_code = match e {
+            AppError::NoMatchingWindows => 2,
+            AppError::MultipleWindows(_) => 3,
+            AppError::InvalidParameter(_) => 4,
+            AppError::FeatureNotSupported(_) => 5,
+            _ => 1,
+        };
+        
+        exit(exit_code);
+    }
+}
+
+fn run() -> AppResult<()> {
     let config = parse_args();
     let feature_manager = create_default_manager();  // 创建特性管理器
 
@@ -42,83 +61,61 @@ fn main() {
     match config.subcommand {
         Some(SubCommand::WindowsGet { pid, name, title, format, sort_pid, sort_position }) => {
             // Handle windows/get subcommand
-            if let Err(e) = handle_windows_get_command(pid, name, title, format, sort_pid, sort_position) {
-                eprintln!("windows/get command error: {}", e);
-                exit(1);
-            }
+            handle_windows_get_command(pid, name, title, format, sort_pid, sort_position)?;
         }
         Some(SubCommand::WindowsMinimize { pid, name, title, all }) => {
             // Handle windows/minimize subcommand using unified handler
-            if let Err(e) = handle_window_operation_command(
+            handle_window_operation_command(
                 pid, name, title, all, 
                 WindowOperation::Minimize
-            ) {
-                eprintln!("windows/minimize command error: {}", e);
-                exit(1);
-            }
+            )?;
         }
         Some(SubCommand::WindowsMaximize { pid, name, title, all }) => {
             // Handle windows/maximize subcommand using unified handler
-            if let Err(e) = handle_window_operation_command(
+            handle_window_operation_command(
                 pid, name, title, all, 
                 WindowOperation::Maximize
-            ) {
-                eprintln!("windows/maximize command error: {}", e);
-                exit(1);
-            }
+            )?;
         }
         Some(SubCommand::WindowsRestore { pid, name, title, all }) => {
             // Handle windows/restore subcommand using unified handler
-            if let Err(e) = handle_window_operation_command(
+            handle_window_operation_command(
                 pid, name, title, all, 
                 WindowOperation::Restore
-            ) {
-                eprintln!("windows/restore command error: {}", e);
-                exit(1);
-            }
+            )?;
         }
         Some(SubCommand::WindowsPositionSet { 
             pid, name, title, all, position, index, layout, 
             x_start, y_start, x_step, y_step, sort_position 
         }) => {
-            if let Err(e) = handle_windows_position_set_command(
+            handle_windows_position_set_command(
                 pid, name, title, all, position, index, layout,
                 x_start, y_start, x_step, y_step, sort_position
-            ) {
-                eprintln!("windows/position/set command error: {}", e);
-                exit(1);
-            }
+            )?;
         }
         Some(SubCommand::WindowsAlwaysOnTop { pid, name, title, all, toggle, off }) => {
             // 使用特性管理器执行置顶命令
-            if let Err(e) = feature_manager.execute(&SubCommand::WindowsAlwaysOnTop { 
+            feature_manager.execute(&SubCommand::WindowsAlwaysOnTop { 
                 pid, name, title, all, toggle, off 
-            }) {
-                eprintln!("windows/alwaysontop command error: {}", e);
-                exit(1);
-            }
+            })?;
         }
         Some(SubCommand::WindowsTransparency { pid, name, title, all, level, reset }) => {
             // 使用特性管理器执行透明度命令
-            if let Err(e) = feature_manager.execute(&SubCommand::WindowsTransparency { 
+            feature_manager.execute(&SubCommand::WindowsTransparency { 
                 pid, name, title, all, level, reset 
-            }) {
-                eprintln!("windows/transparency command error: {}", e);
-                exit(1);
-            }
+            })?;
         }
         // Some(subcommand) => {
         //     // 使用特性管理器执行其他特性相关的子命令
-        //     if let Err(e) = feature_manager.execute(&subcommand) {
-        //         eprintln!("Command error: {}", e);
-        //         exit(1);
-        //     }
+        //     feature_manager.execute(&subcommand)?;
         // }
         None => {
             // Handle normal process listing
-            handle_process_command(config);
+            handle_process_command(config)?;
         }
     }
+    
+    Ok(())
 }
 
 // 窗口操作类型枚举 - 提供类型安全
@@ -170,7 +167,7 @@ fn handle_window_operation_command(
     title_filter: Option<String>,
     all: bool,
     operation: WindowOperation,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> AppResult<()> {
     // Get process names for filtering
     let processes = get_processes();
     let process_names: Vec<(u32, String)> = processes
@@ -179,20 +176,17 @@ fn handle_window_operation_command(
         .collect();
 
     // 使用统一的执行器
-    match execute_window_operation(
+    let count = execute_window_operation(
         operation,
         &pid_filter,
         &name_filter,
         &title_filter,
         &process_names,
         all
-    ) {
-        Ok(count) => {
-            println!("Successfully {} {} window(s)", operation.past_tense(), count);
-            Ok(())
-        }
-        Err(e) => Err(e.into()),
-    }
+    )?;
+    
+    println!("Successfully {} {} window(s)", operation.past_tense(), count);
+    Ok(())
 }
 
 // 统一的窗口操作执行器 - 消除重复逻辑
@@ -203,20 +197,17 @@ fn execute_window_operation(
     title_filter: &Option<String>,
     process_names: &[(u32, String)],
     all: bool,
-) -> Result<usize, String> {
+) -> AppResult<usize> {
     // 使用平台抽象层查找匹配的窗口
     let windows = find_windows(pid_filter, name_filter, title_filter, process_names);
     
     // 验证窗口数量
     if windows.is_empty() {
-        return Err("No matching windows found".to_string());
+        return Err(AppError::NoMatchingWindows);
     }
 
     if !all && windows.len() > 1 {
-        return Err(format!(
-            "Multiple windows found ({}). Use --all to {} all matching windows", 
-            windows.len(), operation.as_str()
-        ));
+        return Err(AppError::MultipleWindows(windows.len()));
     }
 
     // 执行操作
@@ -255,7 +246,7 @@ fn handle_windows_get_command(
     format: OutputFormat,
     sort_pid: SortOrder,
     sort_position: PositionSort,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> AppResult<()> {
     // 使用平台抽象层获取所有窗口及其尺寸信息
     let windows = get_all_windows_with_size();
     
@@ -303,8 +294,7 @@ fn handle_windows_get_command(
         .collect();
 
     if filtered_windows.is_empty() {
-        eprintln!("No matching windows found");
-        exit(1);
+        return Err(AppError::NoMatchingWindows);
     }
 
     // 打印排序前的 PID 列表（调试用）
@@ -344,7 +334,7 @@ fn handle_windows_position_set_command(
     x_step: Option<String>,
     y_step: Option<String>,
     sort_position: PositionSort,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> AppResult<()> {
     // 获取进程名称用于过滤
     let processes = get_processes();
     let process_names: Vec<(u32, String)> = processes
@@ -357,7 +347,7 @@ fn handle_windows_position_set_command(
     
     // 验证窗口数量
     if windows.is_empty() {
-        return Err("No matching windows found".to_string().into());  // 修复错误类型
+        return Err(AppError::NoMatchingWindows);
     }
 
     // 应用排序 - 使用 sorting 模块的函数
@@ -407,7 +397,7 @@ fn handle_windows_position_set_command(
     }
 
     if count == 0 {
-        return Err("No windows were positioned".to_string().into());  // 修复错误类型
+        return Err(AppError::NoWindowsModified);
     }
 
     println!("Successfully positioned {} window(s)", count);
@@ -415,7 +405,7 @@ fn handle_windows_position_set_command(
 }
 
 // 进程列表处理函数（保持独立）
-fn handle_process_command(config: cli::CliConfig) {
+fn handle_process_command(config: cli::CliConfig) -> AppResult<()> {
     // Get process list
     let processes = get_processes();
 
@@ -431,14 +421,10 @@ fn handle_process_command(config: cli::CliConfig) {
 
     // Display results
     if filtered_processes.is_empty() {
-        eprintln!("No matching processes found");
-        exit(1);
+        return Err(AppError::NoMatchingWindows);
     }
 
-    if let Err(e) = display_processes(&filtered_processes, config.format, config.verbose) {
-        eprintln!("Output error: {}", e);
-        exit(1);
-    }
+    display_processes(&filtered_processes, config.format, config.verbose)
 }
 
 #[cfg(test)]
