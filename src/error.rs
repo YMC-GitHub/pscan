@@ -1,55 +1,37 @@
 // src/error.rs
-use std::fmt;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AppError {
-    Io(std::io::Error),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    
+    #[error("Parse error: {0}")]
     Parse(String),
+    
+    #[error("Window operation failed: {0}")]
     WindowOperation(String),
+    
+    #[error("No matching windows found")]
     NoMatchingWindows,
+    
+    #[error("Multiple windows found ({0}). Use --all to modify all matching windows")]
     MultipleWindows(usize),
+    
+    #[error("Invalid parameter: {0}")]
     InvalidParameter(String),
+    
+    #[error("Feature not supported: {0}")]
     FeatureNotSupported(String),
+    
+    #[error("Platform error: {0}")]
     PlatformError(String),
+    
+    #[error("No windows were modified")]
     NoWindowsModified,
 }
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AppError::Io(e) => write!(f, "IO error: {}", e),
-            AppError::Parse(msg) => write!(f, "Parse error: {}", msg),
-            AppError::WindowOperation(msg) => write!(f, "Window operation failed: {}", msg),
-            AppError::NoMatchingWindows => write!(f, "No matching windows found"),
-            AppError::MultipleWindows(count) => write!(
-                f, 
-                "Multiple windows found ({}). Use --all to modify all matching windows", 
-                count
-            ),
-            AppError::InvalidParameter(msg) => write!(f, "Invalid parameter: {}", msg),
-            AppError::FeatureNotSupported(feature) => write!(f, "Feature not supported: {}", feature),
-            AppError::PlatformError(msg) => write!(f, "Platform error: {}", msg),
-            AppError::NoWindowsModified => write!(f, "No windows were modified"),
-        }
-    }
-}
-
-impl std::error::Error for AppError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            AppError::Io(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-// 从其他错误类型转换
-impl From<std::io::Error> for AppError {
-    fn from(err: std::io::Error) -> Self {
-        AppError::Io(err)
-    }
-}
-
+// 从其他错误类型转换（除了 std::io::Error，它已经用 #[from] 处理了）
 impl From<serde_json::Error> for AppError {
     fn from(err: serde_json::Error) -> Self {
         AppError::Parse(format!("JSON error: {}", err))
