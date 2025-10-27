@@ -29,6 +29,15 @@ pub enum AppError {
     
     #[error("No windows were modified")]
     NoWindowsModified,
+
+    #[error("Invalid window handle: {0}")]
+    InvalidWindowHandle(String),
+    
+    #[error("Window operation not supported on this platform")]
+    PlatformNotSupported,
+    
+    #[error("Permission denied: {0}")]
+    PermissionDenied(String),
 }
 
 // 从其他错误类型转换（除了 std::io::Error，它已经用 #[from] 处理了）
@@ -70,6 +79,14 @@ impl AppError {
     
     pub fn feature_not_supported(feature: impl Into<String>) -> Self {
         AppError::FeatureNotSupported(feature.into())
+    }
+
+    pub fn invalid_window_handle(msg: impl Into<String>) -> Self {
+        AppError::InvalidWindowHandle(msg.into())
+    }
+    
+    pub fn permission_denied(operation: impl Into<String>) -> Self {
+        AppError::PermissionDenied(format!("{} requires elevated privileges", operation.into()))
     }
 }
 
