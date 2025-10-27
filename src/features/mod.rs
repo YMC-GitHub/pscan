@@ -1,9 +1,11 @@
 // src/features/mod.rs
 mod feature_trait;
 mod always_on_top;
+mod transparency;  // 新增透明度模块
 
 pub use feature_trait::Feature;
 pub use always_on_top::AlwaysOnTopFeature;
+pub use transparency::TransparencyFeature;  // 导出透明度特性
 
 use std::collections::HashMap;
 
@@ -81,6 +83,20 @@ pub fn create_default_manager() -> FeatureManager {
         }
     }
     
+    // 条件注册窗口透明度特性
+    #[cfg(feature = "transparency")]
+    {
+        let transparency_feature = TransparencyFeature::new();
+        if transparency_feature.is_supported() {
+            manager.register_feature(Box::new(transparency_feature));
+            if std::env::var("PSCAN_DEBUG_FEATURES").is_ok() {
+                println!("Debug: Transparency feature enabled");
+            }
+        } else {
+            eprintln!("Warning: Transparency feature is not supported on this platform");
+        }
+    }
+    
     #[cfg(not(feature = "always_on_top"))]
     {
         if std::env::var("PSCAN_DEBUG_FEATURES").is_ok() {
@@ -88,8 +104,12 @@ pub fn create_default_manager() -> FeatureManager {
         }
     }
     
-    // 未来可以在这里注册更多特性...
-    // manager.register_feature(Box::new(AnotherFeature::new()));
+    #[cfg(not(feature = "transparency"))]
+    {
+        if std::env::var("PSCAN_DEBUG_FEATURES").is_ok() {
+            println!("Debug: Transparency feature disabled at compile time");
+        }
+    }
     
     manager
 }
@@ -101,6 +121,11 @@ pub fn get_enabled_features() -> Vec<&'static str> {
     #[cfg(feature = "always_on_top")]
     {
         features.push("always_on_top");
+    }
+    
+    #[cfg(feature = "transparency")]
+    {
+        features.push("transparency");
     }
     
     features

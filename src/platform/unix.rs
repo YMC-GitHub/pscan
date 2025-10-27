@@ -35,6 +35,10 @@ impl UnixWindowData {
     pub fn is_always_on_top_impl(&self) -> Result<bool, String> {
         Err("Window always on top detection not supported on this platform".to_string())
     }
+    
+    pub fn set_transparency_impl(&self, _opacity: u8) -> Result<(), String> {
+        Err("Window transparency operations not supported on this platform".to_string())
+    }
 }
 
 // 修复这里：避免递归调用
@@ -61,6 +65,10 @@ impl PlatformWindow for UnixWindowData {
     
     fn is_always_on_top(&self) -> Result<bool, String> {
         self.is_always_on_top_impl()
+    }
+    
+    fn set_transparency(&self, opacity: u8) -> Result<(), String> {
+        self.set_transparency_impl(opacity)
     }
 }
 

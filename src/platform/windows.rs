@@ -1,10 +1,20 @@
+// src/platform/windows.rs
 use windows::Win32::Foundation::{HWND, BOOL, LPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowTextW, GetWindowThreadProcessId, GetWindowRect, 
     SetWindowPos, ShowWindow, IsWindowVisible, GetClassNameW, GetWindowLongW,
     SW_MINIMIZE, SW_MAXIMIZE, SW_RESTORE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-    GWL_EXSTYLE, WS_EX_TOPMOST, HWND_TOPMOST, HWND_NOTOPMOST
+    GWL_EXSTYLE, WS_EX_TOPMOST, HWND_TOPMOST, HWND_NOTOPMOST, WS_EX_LAYERED
 };
+// 修复 SetLayeredWindowAttributes 导入
+use windows::Win32::UI::WindowsAndMessaging::SetLayeredWindowAttributes;
+use windows::Win32::UI::WindowsAndMessaging::LWA_ALPHA;
+// 修复 SetWindowLongW 导入
+use windows::Win32::UI::WindowsAndMessaging::SetWindowLongW;
+// 添加 COLORREF 导入
+// use windows::Win32::Graphics::Gdi::COLORREF;
+use windows::Win32::Foundation::COLORREF;
+
 use crate::platform::interface::PlatformWindow;
 use crate::types::{WindowInfo, WindowRect};
 
@@ -139,6 +149,38 @@ impl WindowsWindowData {
             Ok((ex_style & WS_EX_TOPMOST.0 as i32) != 0)
         }
     }
+    
+    pub fn set_transparency(&self, opacity: u8) -> Result<(), String> {
+        unsafe {
+            let hwnd = HWND(self.hwnd);
+            if !IsWindowVisible(hwnd).as_bool() {
+                return Err("Window not visible or invalid handle".to_string());
+            }
+            
+            // 设置分层窗口样式
+            let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+            if ex_style == 0 {
+                return Err("Failed to get window style".to_string());
+            }
+            
+            // 确保窗口有分层样式
+            let new_style = ex_style | WS_EX_LAYERED.0 as i32;
+            if SetWindowLongW(hwnd, GWL_EXSTYLE, new_style) == 0 {
+                return Err("Failed to set layered window style".to_string());
+            }
+            
+            // 计算透明度值 (0-255)
+            let alpha = (opacity as u32 * 255) / 100;
+            
+            // 设置透明度 - 修复参数类型
+            let crkey = COLORREF(0); // 方案1： 使用 use windows::Win32::Foundation 模块中的 COLORREF
+            // let crkey = 0u32; //  方案2：使用 u32 类型来替代 COLORREF，因为 SetLayeredWindowAttributes 函数的 crKey 参数实际上是一个 u32 类型的颜色键值
+            match SetLayeredWindowAttributes(hwnd, crkey, alpha as u8, LWA_ALPHA) {
+                Ok(()) => Ok(()),
+                Err(e) => Err(format!("Failed to set window transparency: {}", e))
+            }
+        }
+    }
 }
 
 // 为 WindowsWindowData 实现 PlatformWindow trait
@@ -165,6 +207,10 @@ impl PlatformWindow for WindowsWindowData {
     
     fn is_always_on_top(&self) -> Result<bool, String> {
         self.is_always_on_top()
+    }
+    
+    fn set_transparency(&self, opacity: u8) -> Result<(), String> {
+        self.set_transparency(opacity)
     }
 }
 

@@ -57,13 +57,21 @@ pub enum SubCommand {
         y_step: Option<String>,
         sort_position: PositionSort,
     },
-    WindowsAlwaysOnTop {  // 新增
+    WindowsAlwaysOnTop {
         pid: Option<String>,
         name: Option<String>,
         title: Option<String>,
         all: bool,
         toggle: bool,
         off: bool,
+    },
+    WindowsTransparency {  // 新增透明度子命令
+        pid: Option<String>,
+        name: Option<String>,
+        title: Option<String>,
+        all: bool,
+        level: u8,
+        reset: bool,
     },
 }
 

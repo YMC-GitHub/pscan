@@ -17,7 +17,7 @@ use process::{get_processes, filter_processes};
 use window::{get_all_windows_with_size, find_windows};
 use types::WindowInfo;
 use utils::{parse_indices, validate_position_parameters, calculate_positions};
-use features::{create_default_manager,get_enabled_features};  // 新增
+use features::{create_default_manager, get_enabled_features};  // 新增
 
 fn main() {
     let config = parse_args();
@@ -89,13 +89,31 @@ fn main() {
                 exit(1);
             }
         }
-        Some(subcommand) => {
-            // 使用特性管理器执行特性相关的子命令
-            if let Err(e) = feature_manager.execute(&subcommand) {
-                eprintln!("Command error: {}", e);
+        Some(SubCommand::WindowsAlwaysOnTop { pid, name, title, all, toggle, off }) => {
+            // 使用特性管理器执行置顶命令
+            if let Err(e) = feature_manager.execute(&SubCommand::WindowsAlwaysOnTop { 
+                pid, name, title, all, toggle, off 
+            }) {
+                eprintln!("windows/alwaysontop command error: {}", e);
                 exit(1);
             }
         }
+        Some(SubCommand::WindowsTransparency { pid, name, title, all, level, reset }) => {
+            // 使用特性管理器执行透明度命令
+            if let Err(e) = feature_manager.execute(&SubCommand::WindowsTransparency { 
+                pid, name, title, all, level, reset 
+            }) {
+                eprintln!("windows/transparency command error: {}", e);
+                exit(1);
+            }
+        }
+        // Some(subcommand) => {
+        //     // 使用特性管理器执行其他特性相关的子命令
+        //     if let Err(e) = feature_manager.execute(&subcommand) {
+        //         eprintln!("Command error: {}", e);
+        //         exit(1);
+        //     }
+        // }
         None => {
             // Handle normal process listing
             handle_process_command(config);
