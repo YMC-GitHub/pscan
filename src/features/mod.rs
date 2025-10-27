@@ -70,47 +70,29 @@ impl FeatureManager {
 pub fn create_default_manager() -> FeatureManager {
     let mut manager = FeatureManager::new();
     
-    // 条件注册窗口置顶特性
-    #[cfg(feature = "always_on_top")]
-    {
-        let always_on_top_feature = AlwaysOnTopFeature::new();
-        if always_on_top_feature.is_supported() {
-            manager.register_feature(Box::new(always_on_top_feature));
+    // 统一的特性注册函数
+    fn register_feature_if_supported<F: Feature + 'static>(
+        manager: &mut FeatureManager, 
+        feature: F,
+        feature_name: &str
+    ) {
+        if feature.is_supported() {
+            manager.register_feature(Box::new(feature));
             if std::env::var("PSCAN_DEBUG_FEATURES").is_ok() {
-                println!("Debug: Always on top feature enabled");
+                println!("Debug: {} feature enabled", feature_name);
             }
         } else {
-            eprintln!("Warning: Always on top feature is not supported on this platform");
+            eprintln!("Warning: {} feature is not supported on this platform", feature_name);
         }
     }
+    
+    // 条件注册窗口置顶特性
+    #[cfg(feature = "always_on_top")]
+    register_feature_if_supported(&mut manager, AlwaysOnTopFeature::new(), "always_on_top");
     
     // 条件注册窗口透明度特性
     #[cfg(feature = "transparency")]
-    {
-        let transparency_feature = TransparencyFeature::new();
-        if transparency_feature.is_supported() {
-            manager.register_feature(Box::new(transparency_feature));
-            if std::env::var("PSCAN_DEBUG_FEATURES").is_ok() {
-                println!("Debug: Transparency feature enabled");
-            }
-        } else {
-            eprintln!("Warning: Transparency feature is not supported on this platform");
-        }
-    }
-    
-    #[cfg(not(feature = "always_on_top"))]
-    {
-        if std::env::var("PSCAN_DEBUG_FEATURES").is_ok() {
-            println!("Debug: Always on top feature disabled at compile time");
-        }
-    }
-    
-    #[cfg(not(feature = "transparency"))]
-    {
-        if std::env::var("PSCAN_DEBUG_FEATURES").is_ok() {
-            println!("Debug: Transparency feature disabled at compile time");
-        }
-    }
+    register_feature_if_supported(&mut manager, TransparencyFeature::new(), "transparency");
     
     manager
 }
