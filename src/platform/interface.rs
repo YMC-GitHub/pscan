@@ -7,6 +7,8 @@ pub trait PlatformWindow {
     fn maximize(&self) -> Result<(), String>;
     fn restore(&self) -> Result<(), String>;
     fn set_position(&self, x: i32, y: i32) -> Result<(), String>;
+    fn set_always_on_top(&self, on_top: bool) -> Result<(), String>;  // 新增
+    fn is_always_on_top(&self) -> Result<bool, String>;  // 新增，用于检查当前状态
 }
 
 /// 平台接口 trait
@@ -49,6 +51,14 @@ impl WindowHandle {
 
     pub fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
         self.platform_data.set_position(x, y)
+    }
+    
+    pub fn set_always_on_top(&self, on_top: bool) -> Result<(), String> {
+        self.platform_data.set_always_on_top(on_top)
+    }
+    
+    pub fn is_always_on_top(&self) -> Result<bool, String> {
+        self.platform_data.is_always_on_top()
     }
 }
 
@@ -95,6 +105,24 @@ impl PlatformWindow for PlatformData {
             PlatformData::Windows(data) => data.set_position(x, y),
             #[cfg(unix)]
             PlatformData::Unix(data) => data.set_position(x, y),
+        }
+    }
+    
+    fn set_always_on_top(&self, on_top: bool) -> Result<(), String> {
+        match self {
+            #[cfg(windows)]
+            PlatformData::Windows(data) => data.set_always_on_top(on_top),
+            #[cfg(unix)]
+            PlatformData::Unix(data) => data.set_always_on_top(on_top),
+        }
+    }
+    
+    fn is_always_on_top(&self) -> Result<bool, String> {
+        match self {
+            #[cfg(windows)]
+            PlatformData::Windows(data) => data.is_always_on_top(),
+            #[cfg(unix)]
+            PlatformData::Unix(data) => data.is_always_on_top(),
         }
     }
 }

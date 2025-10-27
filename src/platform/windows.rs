@@ -1,9 +1,9 @@
-// src/platform/windows.rs
 use windows::Win32::Foundation::{HWND, BOOL, LPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowTextW, GetWindowThreadProcessId, GetWindowRect, 
-    SetWindowPos, ShowWindow, IsWindowVisible, GetClassNameW,
-    SW_MINIMIZE, SW_MAXIMIZE, SW_RESTORE, SWP_NOZORDER, SWP_NOACTIVATE
+    SetWindowPos, ShowWindow, IsWindowVisible, GetClassNameW, GetWindowLongW,
+    SW_MINIMIZE, SW_MAXIMIZE, SW_RESTORE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    GWL_EXSTYLE, WS_EX_TOPMOST, HWND_TOPMOST, HWND_NOTOPMOST
 };
 use crate::platform::interface::PlatformWindow;
 use crate::types::{WindowInfo, WindowRect};
@@ -95,6 +95,50 @@ impl WindowsWindowData {
             }
         }
     }
+
+    pub fn set_always_on_top(&self, on_top: bool) -> Result<(), String> {
+        unsafe {
+            let hwnd = HWND(self.hwnd);
+            if !IsWindowVisible(hwnd).as_bool() {
+                return Err("Window not visible or invalid handle".to_string());
+            }
+            
+            let result = if on_top {
+                SetWindowPos(
+                    hwnd,
+                    HWND_TOPMOST,
+                    0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+                )
+            } else {
+                SetWindowPos(
+                    hwnd,
+                    HWND_NOTOPMOST,
+                    0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+                )
+            };
+            
+            if result.is_ok() {
+                Ok(())
+            } else {
+                Err("Failed to set always on top state".to_string())
+            }
+        }
+    }
+    
+    pub fn is_always_on_top(&self) -> Result<bool, String> {
+        unsafe {
+            let hwnd = HWND(self.hwnd);
+            let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+            
+            if ex_style == 0 {
+                return Err("Failed to get window style".to_string());
+            }
+            
+            Ok((ex_style & WS_EX_TOPMOST.0 as i32) != 0)
+        }
+    }
 }
 
 // 为 WindowsWindowData 实现 PlatformWindow trait
@@ -113,6 +157,14 @@ impl PlatformWindow for WindowsWindowData {
 
     fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
         self.set_position(x, y)
+    }
+    
+    fn set_always_on_top(&self, on_top: bool) -> Result<(), String> {
+        self.set_always_on_top(on_top)
+    }
+    
+    fn is_always_on_top(&self) -> Result<bool, String> {
+        self.is_always_on_top()
     }
 }
 
@@ -178,6 +230,7 @@ fn is_system_window(hwnd: HWND) -> bool {
     }
 }
 
+// 修改 find_windows 函数来保存实际的 HWND
 pub fn find_windows(
     pid_filter: &Option<String>,
     name_filter: &Option<String>,
@@ -186,10 +239,53 @@ pub fn find_windows(
 ) -> Vec<crate::platform::WindowHandle> {
     use crate::platform::{WindowHandle, PlatformData};
     
-    let all_windows = get_all_windows_with_size();
+    let mut windows_with_handles: Vec<(WindowInfo, isize)> = Vec::new();
+    
+    // 自定义枚举回调来保存 HWND
+    unsafe extern "system" fn enum_window_callback_with_handle(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let windows = &mut *(lparam.0 as *mut Vec<(WindowInfo, isize)>);
+
+        if IsWindowVisible(hwnd).as_bool() {
+            let mut title = [0u16; 512];
+            let title_len = GetWindowTextW(hwnd, &mut title);
+            
+            if title_len > 0 {
+                let title_str = String::from_utf16_lossy(&title[..title_len as usize]);
+                
+                // 跳过空标题或系统窗口
+                if !title_str.trim().is_empty() && !is_system_window(hwnd) {
+                    let mut pid: u32 = 0;
+                    GetWindowThreadProcessId(hwnd, Some(&mut pid));
+                    
+                    let mut rect = std::mem::zeroed();
+                    if GetWindowRect(hwnd, &mut rect).is_ok() {
+                        let window_info = WindowInfo {
+                            pid,
+                            title: title_str,
+                            rect: WindowRect::new(
+                                rect.left,
+                                rect.top,
+                                rect.right - rect.left,
+                                rect.bottom - rect.top
+                            ),
+                        };
+                        
+                        windows.push((window_info, hwnd.0));
+                    }
+                }
+            }
+        }
+
+        true.into() // Continue enumeration
+    }
+    
+    unsafe {
+        let _ = EnumWindows(Some(enum_window_callback_with_handle), LPARAM(&mut windows_with_handles as *mut _ as isize));
+    }
+    
     let mut result = Vec::new();
 
-    for window in all_windows {
+    for (window, hwnd) in windows_with_handles {
         // PID filter
         if let Some(pid_str) = pid_filter {
             if let Ok(filter_pid) = pid_str.parse::<u32>() {
@@ -219,10 +315,8 @@ pub fn find_windows(
             }
         }
 
-        // 创建窗口句柄
-        // 注意：这里需要获取实际的 HWND，简化实现中我们使用 0
-        // 在实际实现中，需要在 enum_window_callback 中保存 HWND
-        let platform_data = PlatformData::Windows(WindowsWindowData::new(0));
+        // 使用实际的 HWND 创建窗口句柄
+        let platform_data = PlatformData::Windows(WindowsWindowData::new(hwnd));
         let handle = WindowHandle::new(window.pid, window.title, platform_data);
         result.push(handle);
     }

@@ -7,18 +7,21 @@ mod output;
 mod platform;
 mod sorting;
 mod utils;
+mod features;  // 新增特性模块
 
 use std::process::exit;
 use output::{OutputFormat, display_processes, display_windows};
 use cli::{parse_args, SubCommand};
 use sorting::{SortOrder, PositionSort};
 use process::{get_processes, filter_processes};
-use window::{get_all_windows_with_size, find_windows};  // 移除 WindowHandle 导入
+use window::{get_all_windows_with_size, find_windows};
 use types::WindowInfo;
 use utils::{parse_indices, validate_position_parameters, calculate_positions};
+use features::create_default_manager;  // 新增
 
 fn main() {
     let config = parse_args();
+    let feature_manager = create_default_manager();  // 创建特性管理器
 
     match config.subcommand {
         Some(SubCommand::WindowsGet { pid, name, title, format, sort_pid, sort_position }) => {
@@ -67,6 +70,13 @@ fn main() {
                 x_start, y_start, x_step, y_step, sort_position
             ) {
                 eprintln!("windows/position/set command error: {}", e);
+                exit(1);
+            }
+        }
+        Some(subcommand) => {
+            // 使用特性管理器执行特性相关的子命令
+            if let Err(e) = feature_manager.execute(&subcommand) {
+                eprintln!("Command error: {}", e);
                 exit(1);
             }
         }

@@ -2,6 +2,7 @@
 use clap::{Arg, Command};
 use crate::output::OutputFormat;
 use crate::sorting::{SortOrder, PositionSort};  // 从 sorting 模块导入
+use crate::features;
 
 pub struct CliConfig {
     pub pid_filter: Option<String>,
@@ -55,6 +56,14 @@ pub enum SubCommand {
         x_step: Option<String>,
         y_step: Option<String>,
         sort_position: PositionSort,
+    },
+    WindowsAlwaysOnTop {  // 新增
+        pid: Option<String>,
+        name: Option<String>,
+        title: Option<String>,
+        all: bool,
+        toggle: bool,
+        off: bool,
     },
 }
 
@@ -403,6 +412,8 @@ fn handle_subcommand_matches(matches: &clap::ArgMatches) -> Option<SubCommand> {
 }
 
 pub fn parse_args() -> CliConfig {
+    let feature_manager = features::create_default_manager();
+    
     let matches = build_common_args(
         Command::new("Process Filter")
             .version(env!("CARGO_PKG_VERSION"))
@@ -410,26 +421,32 @@ pub fn parse_args() -> CliConfig {
             .about(env!("CARGO_PKG_DESCRIPTION"))
             .subcommand_required(false)
             .arg_required_else_help(false)
-    )
-    .subcommand(build_windows_get_command())
-    .subcommand(build_window_operation_command("windows/minimize", "Minimize windows"))
-    .subcommand(build_window_operation_command("windows/maximize", "Maximize windows"))
-    .subcommand(build_window_operation_command("windows/restore", "Restore windows to normal state"))
-    .subcommand(build_windows_position_set_command())
-    // 为未来扩展预留
-    .subcommand(
-        Command::new("windows/set")
-            .about("Set window properties (future)")
-            .arg(Arg::new("pid").required(true))
-    )
-    .subcommand(
-        Command::new("windows/move")
-            .about("Move window position (future)")
-            .arg(Arg::new("pid").required(true))
-    )
-    .get_matches();
+    );
+    
+    // 使用特性管理器构建 CLI
+    let matches = feature_manager.build_cli(matches)
+        // 保持现有的硬编码子命令（为了向后兼容）
+        .subcommand(build_windows_get_command())
+        .subcommand(build_window_operation_command("windows/minimize", "Minimize windows"))
+        .subcommand(build_window_operation_command("windows/maximize", "Maximize windows"))
+        .subcommand(build_window_operation_command("windows/restore", "Restore windows to normal state"))
+        .subcommand(build_windows_position_set_command())
+        // 为未来扩展预留
+        .subcommand(
+            Command::new("windows/set")
+                .about("Set window properties (future)")
+                .arg(Arg::new("pid").required(true))
+        )
+        .subcommand(
+            Command::new("windows/move")
+                .about("Move window position (future)")
+                .arg(Arg::new("pid").required(true))
+        )
+        .get_matches();
 
-    let subcommand = handle_subcommand_matches(&matches);
+    // 优先使用特性管理器解析子命令
+    let subcommand = feature_manager.parse_cli(&matches)
+        .or_else(|| handle_subcommand_matches(&matches)); // 回退到旧解析逻辑
 
     let (pid_filter, name_filter, title_filter) = extract_filter_args(&matches);
     

@@ -27,6 +27,14 @@ impl UnixWindowData {
     pub fn set_position_impl(&self, _x: i32, _y: i32) -> Result<(), String> {
         Err("Window position setting not supported on this platform".to_string())
     }
+    
+    pub fn set_always_on_top_impl(&self, _on_top: bool) -> Result<(), String> {
+        Err("Window always on top operations not supported on this platform".to_string())
+    }
+    
+    pub fn is_always_on_top_impl(&self) -> Result<bool, String> {
+        Err("Window always on top detection not supported on this platform".to_string())
+    }
 }
 
 // 修复这里：避免递归调用
@@ -45,6 +53,14 @@ impl PlatformWindow for UnixWindowData {
 
     fn set_position(&self, x: i32, y: i32) -> Result<(), String> {
         self.set_position_impl(x, y)
+    }
+    
+    fn set_always_on_top(&self, on_top: bool) -> Result<(), String> {
+        self.set_always_on_top_impl(on_top)
+    }
+    
+    fn is_always_on_top(&self) -> Result<bool, String> {
+        self.is_always_on_top_impl()
     }
 }
 
