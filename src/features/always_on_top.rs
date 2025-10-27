@@ -15,7 +15,7 @@ impl AlwaysOnTopFeature {
     
     /// 构建子命令
     fn build_command(&self) -> Command {
-        Command::new("windows/alwaysontop")
+        Command::new("windows/always-on-top")
             .about("Set window always on top state")
             .arg(
                 Arg::new("pid")
@@ -168,7 +168,7 @@ impl Feature for AlwaysOnTopFeature {
     }
     
     fn parse_cli(&self, matches: &clap::ArgMatches) -> Option<SubCommand> {
-        if let Some(matches) = matches.subcommand_matches("windows/alwaysontop") {
+        if let Some(matches) = matches.subcommand_matches("windows/always-on-top") {
             let (pid, name, title) = Self::extract_filter_args(matches);
             let all = matches.get_flag("all");
             let toggle = matches.get_flag("toggle");
