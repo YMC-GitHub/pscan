@@ -17,11 +17,27 @@ use process::{get_processes, filter_processes};
 use window::{get_all_windows_with_size, find_windows};
 use types::WindowInfo;
 use utils::{parse_indices, validate_position_parameters, calculate_positions};
-use features::create_default_manager;  // 新增
+use features::{create_default_manager,get_enabled_features};  // 新增
 
 fn main() {
     let config = parse_args();
     let feature_manager = create_default_manager();  // 创建特性管理器
+
+    // 显示启用的特性（调试信息）
+    if config.verbose {
+        let enabled_features = get_enabled_features();
+        if !enabled_features.is_empty() {
+            println!("Enabled features: {:?}", enabled_features);
+        }
+        
+        let runtime_features: Vec<&str> = feature_manager.get_features()
+            .iter()
+            .map(|f| f.name())
+            .collect();
+        if !runtime_features.is_empty() {
+            println!("Runtime available features: {:?}", runtime_features);
+        }
+    }
 
     match config.subcommand {
         Some(SubCommand::WindowsGet { pid, name, title, format, sort_pid, sort_position }) => {

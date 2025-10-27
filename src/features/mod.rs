@@ -67,11 +67,41 @@ impl FeatureManager {
 pub fn create_default_manager() -> FeatureManager {
     let mut manager = FeatureManager::new();
     
-    // 注册窗口置顶特性
-    manager.register_feature(Box::new(AlwaysOnTopFeature::new()));
+    // 条件注册窗口置顶特性
+    #[cfg(feature = "always_on_top")]
+    {
+        let always_on_top_feature = AlwaysOnTopFeature::new();
+        if always_on_top_feature.is_supported() {
+            manager.register_feature(Box::new(always_on_top_feature));
+            if std::env::var("PSCAN_DEBUG_FEATURES").is_ok() {
+                println!("Debug: Always on top feature enabled");
+            }
+        } else {
+            eprintln!("Warning: Always on top feature is not supported on this platform");
+        }
+    }
+    
+    #[cfg(not(feature = "always_on_top"))]
+    {
+        if std::env::var("PSCAN_DEBUG_FEATURES").is_ok() {
+            println!("Debug: Always on top feature disabled at compile time");
+        }
+    }
     
     // 未来可以在这里注册更多特性...
     // manager.register_feature(Box::new(AnotherFeature::new()));
     
     manager
+}
+
+/// 获取启用的特性列表（用于调试和信息显示）
+pub fn get_enabled_features() -> Vec<&'static str> {
+    let mut features = Vec::new();
+    
+    #[cfg(feature = "always_on_top")]
+    {
+        features.push("always_on_top");
+    }
+    
+    features
 }
