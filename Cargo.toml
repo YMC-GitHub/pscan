@@ -16,11 +16,12 @@ name = "pscan"
 path = "src/main.rs"
 
 [features]
-default = ["always_on_top", "transparency", "position_set"]  # 默认启用窗口置顶、透明度和位置设置功能
+default = ["window_operations", "always_on_top", "transparency", "position_set"]  # 默认启用所有窗口功能
+window_operations = []  # 窗口操作功能特性（最大化、最小化、还原）- 使用现有平台抽象层
 always_on_top = ["windows"]  # 窗口置顶功能特性
 transparency = ["windows"]   # 窗口透明度功能特性
 position_set = ["windows"]   # 窗口位置设置功能特性
-minimal = []                 # 最小功能集，不包含窗口置顶、透明度和位置设置
+minimal = []                 # 最小功能集，不包含任何窗口操作功能
 
 [dependencies]
 sysinfo = "0.30.5"

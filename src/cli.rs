@@ -140,40 +140,6 @@ fn build_windows_get_command() -> Command {
         )
 }
 
-// 构建窗口操作子命令的通用函数
-fn build_window_operation_command(name: &'static str, about: &'static str) -> Command {
-    Command::new(name)
-        .about(about)
-        .arg(
-            Arg::new("pid")
-                .short('p')
-                .long("pid")
-                .value_name("PID")
-                .help("Filter by process ID")
-        )
-        .arg(
-            Arg::new("name")
-                .short('n')
-                .long("name")
-                .value_name("NAME")
-                .help("Filter by process name (contains)")
-        )
-        .arg(
-            Arg::new("title")
-                .short('t')
-                .long("title")
-                .value_name("TITLE")
-                .help("Filter by window title (contains)")
-        )
-        .arg(
-            Arg::new("all")
-                .short('a')
-                .long("all")
-                .action(clap::ArgAction::SetTrue)
-                .help("Apply to all matching windows")
-        )
-}
-
 // 构建主命令的通用参数
 fn build_common_args(command: Command) -> Command {
     command
@@ -229,7 +195,7 @@ fn build_common_args(command: Command) -> Command {
         )
 }
 
-// 处理子命令匹配的辅助函数
+// 处理子命令匹配的辅助函数（现在只处理 windows/get）
 fn handle_subcommand_matches(matches: &clap::ArgMatches) -> Option<SubCommand> {
     if let Some(matches) = matches.subcommand_matches("windows/get") {
         let (pid, name, title) = extract_filter_args(matches);
@@ -264,21 +230,10 @@ fn handle_subcommand_matches(matches: &clap::ArgMatches) -> Option<SubCommand> {
             sort_pid,
             sort_position,
         })
-    } else if let Some(matches) = matches.subcommand_matches("windows/minimize") {
-        let (pid, name, title) = extract_filter_args(matches);
-        let all = matches.get_flag("all");
-        Some(SubCommand::WindowsMinimize { pid, name, title, all })
-    } else if let Some(matches) = matches.subcommand_matches("windows/maximize") {
-        let (pid, name, title) = extract_filter_args(matches);
-        let all = matches.get_flag("all");
-        Some(SubCommand::WindowsMaximize { pid, name, title, all })
-    } else if let Some(matches) = matches.subcommand_matches("windows/restore") {
-        let (pid, name, title) = extract_filter_args(matches);
-        let all = matches.get_flag("all");
-        Some(SubCommand::WindowsRestore { pid, name, title, all })
     } else {
         None
     }
+    // 注意：minimize/maximize/restore 子命令现在由特性管理器处理
 }
 
 pub fn parse_args() -> CliConfig {
@@ -293,13 +248,11 @@ pub fn parse_args() -> CliConfig {
             .arg_required_else_help(false)
     );
     
-    // 使用特性管理器构建 CLI
+    // 使用特性管理器构建 CLI（现在包含所有窗口操作命令）
     let matches = feature_manager.build_cli(matches)
         // 保持现有的硬编码子命令（为了向后兼容）
         .subcommand(build_windows_get_command())
-        .subcommand(build_window_operation_command("windows/minimize", "Minimize windows"))
-        .subcommand(build_window_operation_command("windows/maximize", "Maximize windows"))
-        .subcommand(build_window_operation_command("windows/restore", "Restore windows to normal state"))
+        // 注意：minimize/maximize/restore 子命令现在由特性管理器自动添加
         // 为未来扩展预留
         .subcommand(
             Command::new("windows/set")
