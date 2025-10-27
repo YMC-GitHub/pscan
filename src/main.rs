@@ -17,7 +17,6 @@ use sorting::{SortOrder, PositionSort};
 use process::{get_processes, filter_processes};
 use window::{get_all_windows_with_size, find_windows};
 use types::WindowInfo;
-use utils::{parse_indices, validate_position_parameters, calculate_positions};
 use features::{create_default_manager, get_enabled_features};  // 新增
 use error::{AppError, AppResult};  // 新增
 
@@ -88,10 +87,11 @@ fn run() -> AppResult<()> {
             pid, name, title, all, position, index, layout, 
             x_start, y_start, x_step, y_step, sort_position 
         }) => {
-            handle_windows_position_set_command(
+            // 使用特性管理器执行位置设置命令
+            feature_manager.execute(&SubCommand::WindowsPositionSet { 
                 pid, name, title, all, position, index, layout,
-                x_start, y_start, x_step, y_step, sort_position
-            )?;
+                x_start, y_start, x_step, y_step, sort_position 
+            })?;
         }
         Some(SubCommand::WindowsAlwaysOnTop { pid, name, title, all, toggle, off }) => {
             // 使用特性管理器执行置顶命令
@@ -105,10 +105,6 @@ fn run() -> AppResult<()> {
                 pid, name, title, all, level, reset 
             })?;
         }
-        // Some(subcommand) => {
-        //     // 使用特性管理器执行其他特性相关的子命令
-        //     feature_manager.execute(&subcommand)?;
-        // }
         None => {
             // Handle normal process listing
             handle_process_command(config)?;
@@ -124,8 +120,6 @@ enum WindowOperation {
     Minimize,
     Maximize,
     Restore,
-    #[allow(dead_code)] 
-    SetPosition,
 }
 
 impl WindowOperation {
@@ -135,7 +129,6 @@ impl WindowOperation {
             WindowOperation::Minimize => "minimize",
             WindowOperation::Maximize => "maximize",
             WindowOperation::Restore => "restore",
-            WindowOperation::SetPosition => "set position",
         }
     }
     
@@ -145,7 +138,6 @@ impl WindowOperation {
             WindowOperation::Minimize => "minimized",
             WindowOperation::Maximize => "maximized",
             WindowOperation::Restore => "restored",
-            WindowOperation::SetPosition => "position set",
         }
     }
     
@@ -155,7 +147,6 @@ impl WindowOperation {
             WindowOperation::Minimize => "Minimized",
             WindowOperation::Maximize => "Maximized",
             WindowOperation::Restore => "Restored",
-            WindowOperation::SetPosition => "Position set",
         }
     }
 }
@@ -217,10 +208,6 @@ fn execute_window_operation(
             WindowOperation::Minimize => window.minimize(),
             WindowOperation::Maximize => window.maximize(),
             WindowOperation::Restore => window.restore(),
-            WindowOperation::SetPosition => {
-                // 对于位置设置，需要额外的参数，这里不处理
-                continue;
-            }
         };
 
         match result {
@@ -320,90 +307,6 @@ fn handle_windows_get_command(
     display_windows(&filtered_windows, &process_names, format)
 }
 
-// 添加新的位置设置处理函数
-fn handle_windows_position_set_command(
-    pid_filter: Option<String>,
-    name_filter: Option<String>,
-    title_filter: Option<String>,
-    all: bool,
-    position: Option<String>,
-    index: Option<String>,
-    layout: Option<String>,
-    x_start: Option<String>,
-    y_start: Option<String>,
-    x_step: Option<String>,
-    y_step: Option<String>,
-    sort_position: PositionSort,
-) -> AppResult<()> {
-    // 获取进程名称用于过滤
-    let processes = get_processes();
-    let process_names: Vec<(u32, String)> = processes
-        .iter()
-        .map(|p| (p.pid.parse().unwrap_or(0), p.name.clone()))
-        .collect();
-
-    // 使用平台抽象层查找匹配的窗口
-    let mut windows = find_windows(&pid_filter, &name_filter, &title_filter, &process_names);
-    
-    // 验证窗口数量
-    if windows.is_empty() {
-        return Err(AppError::NoMatchingWindows);
-    }
-
-    // 应用排序 - 使用 sorting 模块的函数
-    sorting::apply_window_handle_sorting(&mut windows, &SortOrder::None, &sort_position);
-
-    // 解析索引
-    let indices = parse_indices(&index.unwrap_or_default(), windows.len());
-    
-    // 验证参数组合
-    validate_position_parameters(&position, &layout, &x_start, &y_start, &x_step, &y_step)?;
-
-    // 获取位置列表
-    let positions = calculate_positions(
-        windows.len(),
-        &position,
-        &layout.unwrap_or_default(),
-        &x_start, &y_start, &x_step, &y_step,
-    )?;
-
-    // 执行位置设置
-    let mut count = 0;
-    for (i, window) in windows.iter().enumerate() {
-        // 检查索引过滤
-        if !indices.is_empty() && !indices.contains(&(i + 1)) {
-            continue;
-        }
-
-        // 检查是否应用所有窗口
-        if !all && indices.is_empty() && i > 0 {
-            break; // 如果没有指定 --all 且没有指定索引，只操作第一个窗口
-        }
-
-        // 获取对应的位置
-        if let Some(pos) = positions.get(i) {
-            match window.set_position(pos.0, pos.1) {
-                Ok(()) => {
-                    println!("{}: {} (PID: {}) to position {},{}", 
-                             "Position set", window.title, window.pid, pos.0, pos.1);
-                    count += 1;
-                }
-                Err(e) => {
-                    eprintln!("Failed to set position for window {} (PID: {}): {}", 
-                             window.title, window.pid, e);
-                }
-            }
-        }
-    }
-
-    if count == 0 {
-        return Err(AppError::NoWindowsModified);
-    }
-
-    println!("Successfully positioned {} window(s)", count);
-    Ok(())
-}
-
 // 进程列表处理函数（保持独立）
 fn handle_process_command(config: cli::CliConfig) -> AppResult<()> {
     // Get process list
@@ -447,22 +350,18 @@ mod tests {
         let minimize = WindowOperation::Minimize;
         let maximize = WindowOperation::Maximize;
         let restore = WindowOperation::Restore;
-        let set_position = WindowOperation::SetPosition;
 
         assert_eq!(minimize.as_str(), "minimize");
         assert_eq!(maximize.as_str(), "maximize");
         assert_eq!(restore.as_str(), "restore");
-        assert_eq!(set_position.as_str(), "set position");
 
         assert_eq!(minimize.past_tense(), "minimized");
         assert_eq!(maximize.past_tense(), "maximized");
         assert_eq!(restore.past_tense(), "restored");
-        assert_eq!(set_position.past_tense(), "position set");
 
         assert_eq!(minimize.capitalized(), "Minimized");
         assert_eq!(maximize.capitalized(), "Maximized");
         assert_eq!(restore.capitalized(), "Restored");
-        assert_eq!(set_position.capitalized(), "Position set");
     }
 
     #[test]
@@ -482,13 +381,11 @@ mod tests {
         let minimize = WindowOperation::Minimize;
         let maximize = WindowOperation::Maximize;
         let restore = WindowOperation::Restore;
-        let set_position = WindowOperation::SetPosition;
 
         // This should compile and run without panicking
         format!("{:?}", minimize);
         format!("{:?}", maximize);
         format!("{:?}", restore);
-        format!("{:?}", set_position);
     }
 
     #[test]
