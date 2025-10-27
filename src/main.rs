@@ -11,12 +11,9 @@ mod features;  // 新增特性模块
 mod error;     // 新增错误处理模块
 
 use std::process::exit;
-use output::{OutputFormat, display_processes, display_windows};
+use output::{OutputFormat, display_processes};
 use cli::{parse_args, SubCommand};
-use sorting::{SortOrder, PositionSort};
 use process::{get_processes, filter_processes};
-use window::{get_all_windows_with_size, find_windows};
-use types::WindowInfo;
 use features::{create_default_manager, get_enabled_features};  // 新增
 use error::{AppError, AppResult};  // 新增
 
@@ -58,52 +55,9 @@ fn run() -> AppResult<()> {
     }
 
     match config.subcommand {
-        Some(SubCommand::WindowsGet { pid, name, title, format, sort_pid, sort_position }) => {
-            // Handle windows/get subcommand
-            handle_windows_get_command(pid, name, title, format, sort_pid, sort_position)?;
-        }
-        Some(SubCommand::WindowsMinimize { pid, name, title, all }) => {
-            // Handle windows/minimize subcommand using unified handler
-            handle_window_operation_command(
-                pid, name, title, all, 
-                WindowOperation::Minimize
-            )?;
-        }
-        Some(SubCommand::WindowsMaximize { pid, name, title, all }) => {
-            // Handle windows/maximize subcommand using unified handler
-            handle_window_operation_command(
-                pid, name, title, all, 
-                WindowOperation::Maximize
-            )?;
-        }
-        Some(SubCommand::WindowsRestore { pid, name, title, all }) => {
-            // Handle windows/restore subcommand using unified handler
-            handle_window_operation_command(
-                pid, name, title, all, 
-                WindowOperation::Restore
-            )?;
-        }
-        Some(SubCommand::WindowsPositionSet { 
-            pid, name, title, all, position, index, layout, 
-            x_start, y_start, x_step, y_step, sort_position 
-        }) => {
-            // 使用特性管理器执行位置设置命令
-            feature_manager.execute(&SubCommand::WindowsPositionSet { 
-                pid, name, title, all, position, index, layout,
-                x_start, y_start, x_step, y_step, sort_position 
-            })?;
-        }
-        Some(SubCommand::WindowsAlwaysOnTop { pid, name, title, all, toggle, off }) => {
-            // 使用特性管理器执行置顶命令
-            feature_manager.execute(&SubCommand::WindowsAlwaysOnTop { 
-                pid, name, title, all, toggle, off 
-            })?;
-        }
-        Some(SubCommand::WindowsTransparency { pid, name, title, all, level, reset }) => {
-            // 使用特性管理器执行透明度命令
-            feature_manager.execute(&SubCommand::WindowsTransparency { 
-                pid, name, title, all, level, reset 
-            })?;
+        // 所有子命令现在都由特性管理器处理
+        Some(subcommand) => {
+            feature_manager.execute(&subcommand)?;
         }
         None => {
             // Handle normal process listing
@@ -190,7 +144,7 @@ fn execute_window_operation(
     all: bool,
 ) -> AppResult<usize> {
     // 使用平台抽象层查找匹配的窗口
-    let windows = find_windows(pid_filter, name_filter, title_filter, process_names);
+    let windows = crate::platform::find_windows(pid_filter, name_filter, title_filter, process_names);
     
     // 验证窗口数量
     if windows.is_empty() {
@@ -223,88 +177,6 @@ fn execute_window_operation(
     }
 
     Ok(count)
-}
-
-// 更新 windows/get 处理函数
-fn handle_windows_get_command(
-    pid_filter: Option<String>,
-    name_filter: Option<String>,
-    title_filter: Option<String>,
-    format: OutputFormat,
-    sort_pid: SortOrder,
-    sort_position: PositionSort,
-) -> AppResult<()> {
-    // 使用平台抽象层获取所有窗口及其尺寸信息
-    let windows = get_all_windows_with_size();
-    
-    // Get process names for display
-    let processes = get_processes();
-    let process_names: Vec<(u32, String)> = processes
-        .iter()
-        .map(|p| (p.pid.parse().unwrap_or(0), p.name.clone()))
-        .collect();
-    
-    // Filter windows
-    let mut filtered_windows: Vec<WindowInfo> = windows
-        .iter()
-        .filter(|window| {
-            // PID filter
-            if let Some(pid) = &pid_filter {
-                if window.pid.to_string() != *pid {
-                    return false;
-                }
-            }
-
-            // Name filter
-            if let Some(name) = &name_filter {
-                let process_name = process_names
-                    .iter()
-                    .find(|(process_pid, _)| *process_pid == window.pid)
-                    .map(|(_, name)| name.to_lowercase())
-                    .unwrap_or_default();
-                
-                if !process_name.contains(&name.to_lowercase()) {
-                    return false;
-                }
-            }
-
-            // Title filter
-            if let Some(title) = &title_filter {
-                if !window.title.to_lowercase().contains(&title.to_lowercase()) {
-                    return false;
-                }
-            }
-
-            true
-        })
-        .cloned()
-        .collect();
-
-    if filtered_windows.is_empty() {
-        return Err(AppError::NoMatchingWindows);
-    }
-
-    // 打印排序前的 PID 列表（调试用）
-    if std::env::var("DEBUG_SORT").is_ok() {
-        println!("Before sorting:");
-        for window in &filtered_windows {
-            println!("  PID: {}, Title: {}", window.pid, window.title);
-        }
-    }
-
-    // 应用排序 - 使用 sorting 模块的函数
-    sorting::apply_window_sorting(&mut filtered_windows, &sort_pid, &sort_position);
-
-    // 打印排序后的 PID 列表（调试用）
-    if std::env::var("DEBUG_SORT").is_ok() {
-        println!("After sorting:");
-        for window in &filtered_windows {
-            println!("  PID: {}, Title: {}", window.pid, window.title);
-        }
-    }
-
-    // Convert to slice for display
-    display_windows(&filtered_windows, &process_names, format)
 }
 
 // 进程列表处理函数（保持独立）

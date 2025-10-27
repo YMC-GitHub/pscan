@@ -85,61 +85,6 @@ fn extract_filter_args(matches: &clap::ArgMatches) -> (Option<String>, Option<St
     (pid, name, title)
 }
 
-// 构建windows/get子命令
-fn build_windows_get_command() -> Command {
-    Command::new("windows/get")
-        .about("Get window information including size and position")
-        .arg(
-            Arg::new("pid")
-                .short('p')
-                .long("pid")
-                .value_name("PID")
-                .help("Filter by process ID")
-        )
-        .arg(
-            Arg::new("name")
-                .short('n')
-                .long("name")
-                .value_name("NAME")
-                .help("Filter by process name (contains)")
-        )
-        .arg(
-            Arg::new("title")
-                .short('t')
-                .long("title")
-                .value_name("TITLE")
-                .help("Filter by window title (contains)")
-        )
-        .arg(
-            Arg::new("format")
-                .short('f')
-                .long("format")
-                .value_name("FORMAT")
-                .value_parser(clap::value_parser!(OutputFormat))
-                .default_value("table")
-                .help("Output format")
-        )
-        .arg(
-            Arg::new("sort-pid")
-                .long("sort-pid")
-                .value_name("ORDER")
-                .num_args(1)
-                .allow_hyphen_values(true)  // 允许以连字符开头的值
-                .value_parser(["1", "-1", "0"])
-                .default_value("0")
-                .help("Sort by PID: 1 (ascending), -1 (descending), 0 (none)")
-        )
-        .arg(
-            Arg::new("sort-position")
-                .long("sort-position")
-                .value_name("X_ORDER|Y_ORDER")
-                .num_args(1)
-                .allow_hyphen_values(true)  // 允许以连字符开头的值
-                .default_value("0|0")
-                .help("Sort by position: X_ORDER|Y_ORDER, e.g., 1|-1 for X ascending, Y descending")
-        )
-}
-
 // 构建主命令的通用参数
 fn build_common_args(command: Command) -> Command {
     command
@@ -195,46 +140,7 @@ fn build_common_args(command: Command) -> Command {
         )
 }
 
-// 处理子命令匹配的辅助函数（现在只处理 windows/get）
-fn handle_subcommand_matches(matches: &clap::ArgMatches) -> Option<SubCommand> {
-    if let Some(matches) = matches.subcommand_matches("windows/get") {
-        let (pid, name, title) = extract_filter_args(matches);
-        let format = matches.get_one::<OutputFormat>("format").unwrap().clone();
-        
-        // 手动解析排序参数
-        let sort_pid = match matches.get_one::<String>("sort-pid").map(|s| s.as_str()) {
-            Some("1") => SortOrder::Ascending,
-            Some("-1") => SortOrder::Descending,
-            Some("0") | None => SortOrder::None,
-            Some(_) => SortOrder::None, // 不应该发生，因为有 value_parser
-        };
-        
-        let sort_position = match matches.get_one::<String>("sort-position").map(|s| s.as_str()) {
-            Some(s) => {
-                match s.parse() {
-                    Ok(pos) => pos,
-                    Err(_) => {
-                        eprintln!("Warning: Invalid position sort format '{}', using default", s);
-                        PositionSort::default()
-                    }
-                }
-            }
-            None => PositionSort::default(),
-        };
-        
-        Some(SubCommand::WindowsGet { 
-            pid, 
-            name, 
-            title, 
-            format,
-            sort_pid,
-            sort_position,
-        })
-    } else {
-        None
-    }
-    // 注意：minimize/maximize/restore 子命令现在由特性管理器处理
-}
+// 删除原来的 build_windows_get_command 和 handle_subcommand_matches 函数
 
 pub fn parse_args() -> CliConfig {
     let feature_manager = features::create_default_manager();
@@ -250,9 +156,6 @@ pub fn parse_args() -> CliConfig {
     
     // 使用特性管理器构建 CLI（现在包含所有窗口操作命令）
     let matches = feature_manager.build_cli(matches)
-        // 保持现有的硬编码子命令（为了向后兼容）
-        .subcommand(build_windows_get_command())
-        // 注意：minimize/maximize/restore 子命令现在由特性管理器自动添加
         // 为未来扩展预留
         .subcommand(
             Command::new("windows/set")
@@ -266,9 +169,8 @@ pub fn parse_args() -> CliConfig {
         )
         .get_matches();
 
-    // 优先使用特性管理器解析子命令
-    let subcommand = feature_manager.parse_cli(&matches)
-        .or_else(|| handle_subcommand_matches(&matches)); // 回退到旧解析逻辑
+    // 完全使用特性管理器解析子命令
+    let subcommand = feature_manager.parse_cli(&matches);
 
     let (pid_filter, name_filter, title_filter) = extract_filter_args(&matches);
     

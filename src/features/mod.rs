@@ -1,14 +1,17 @@
+// src/features/mod.rs
 mod feature_trait;
 mod always_on_top;
 mod transparency;
 mod position_set;
-mod window_operations;  // 新增窗口操作模块
+mod window_operations;
+mod windows_get;  // 新增
 
 pub use feature_trait::Feature;
 pub use always_on_top::AlwaysOnTopFeature;
 pub use transparency::TransparencyFeature;
 pub use position_set::PositionSetFeature;
-pub use window_operations::WindowOperationsFeature;  // 导出窗口操作特性
+pub use window_operations::WindowOperationsFeature;
+pub use windows_get::WindowsGetFeature;  // 新增
 
 use std::collections::HashMap;
 use crate::error::AppResult;
@@ -89,6 +92,10 @@ pub fn create_default_manager() -> FeatureManager {
         }
     }
     
+    // 条件注册窗口获取特性（应该总是支持）
+    #[cfg(feature = "windows_get")]
+    register_feature_if_supported(&mut manager, WindowsGetFeature::new(), "windows_get");
+
     // 条件注册窗口操作特性
     #[cfg(feature = "window_operations")]
     register_feature_if_supported(&mut manager, WindowOperationsFeature::new(), "window_operations");
@@ -111,6 +118,11 @@ pub fn create_default_manager() -> FeatureManager {
 /// 获取启用的特性列表（用于调试和信息显示）
 pub fn get_enabled_features() -> Vec<&'static str> {
     let mut features = Vec::new();
+    
+    #[cfg(feature = "windows_get")]
+    {
+        features.push("windows_get");
+    }
     
     #[cfg(feature = "window_operations")]
     {
