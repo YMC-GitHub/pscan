@@ -62,8 +62,10 @@ pub enum SubCommand {
         name: Option<String>,
         title: Option<String>,
         all: bool,
+        index: Option<String>,
         toggle: bool,
         off: bool,
+        sort_position: PositionSort,
     },
     WindowsTransparency {
         pid: Option<String>,
