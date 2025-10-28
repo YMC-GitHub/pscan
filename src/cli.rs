@@ -21,6 +21,8 @@ pub enum SubCommand {
         pid: Option<String>,
         name: Option<String>,
         title: Option<String>,
+        all: bool,
+        index: Option<String>,
         format: OutputFormat,
         sort_pid: SortOrder,
         sort_position: PositionSort,

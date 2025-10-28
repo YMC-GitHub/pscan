@@ -7,6 +7,7 @@ use crate::process::get_processes;
 use crate::output::{OutputFormat, display_windows};
 use crate::sorting::{SortOrder, PositionSort, apply_window_sorting};
 use crate::error::{AppError, AppResult};
+use crate::utils::parse_indices;
 
 /// 窗口信息获取特性
 pub struct WindowsGetFeature;
@@ -40,6 +41,21 @@ impl WindowsGetFeature {
                     .long("title")
                     .value_name("TITLE")
                     .help("Filter by window title (contains)")
+            )
+            .arg(
+                Arg::new("all")
+                    .short('a')
+                    .long("all")
+                    .action(clap::ArgAction::SetTrue)
+                    .help("Show all matching windows (ignore index filtering)")
+            )
+            .arg(
+                Arg::new("index")
+                    .long("index")
+                    .value_name("INDICES")
+                    .num_args(1)
+                    .default_value("")
+                    .help("Window indices to show (e.g., \"1,2,3\"), empty means all")
             )
             .arg(
                 Arg::new("format")
@@ -85,6 +101,8 @@ impl WindowsGetFeature {
         pid_filter: Option<String>,
         name_filter: Option<String>,
         title_filter: Option<String>,
+        all: bool,
+        index: Option<String>,
         format: OutputFormat,
         sort_pid: SortOrder,
         sort_position: PositionSort,
@@ -142,6 +160,25 @@ impl WindowsGetFeature {
         // 应用排序
         apply_window_sorting(&mut filtered_windows, &sort_pid, &sort_position);
 
+        // 解析索引
+        let indices = parse_indices(&index.unwrap_or_default(), filtered_windows.len());
+
+        // 应用索引过滤（除非指定了 --all）
+        if !all && !indices.is_empty() {
+            let mut indexed_windows = Vec::new();
+            for (i, window) in filtered_windows.iter().enumerate() {
+                if indices.contains(&(i + 1)) {
+                    indexed_windows.push(window.clone());
+                }
+            }
+            filtered_windows = indexed_windows;
+        }
+
+        // 如果没有匹配的窗口
+        if filtered_windows.is_empty() {
+            return Err(AppError::NoMatchingWindows);
+        }
+
         // 显示结果
         display_windows(&filtered_windows, &process_names, format)
     }
@@ -163,6 +200,8 @@ impl Feature for WindowsGetFeature {
     fn parse_cli(&self, matches: &clap::ArgMatches) -> Option<SubCommand> {
         if let Some(matches) = matches.subcommand_matches("windows/get") {
             let (pid, name, title) = Self::extract_filter_args(matches);
+            let all = matches.get_flag("all");
+            let index = matches.get_one::<String>("index").map(|s| s.to_string());
             let format = matches.get_one::<OutputFormat>("format").unwrap().clone();
             
             // 手动解析排序参数
@@ -190,6 +229,8 @@ impl Feature for WindowsGetFeature {
                 pid, 
                 name, 
                 title, 
+                all,
+                index,
                 format,
                 sort_pid,
                 sort_position,
@@ -200,11 +241,13 @@ impl Feature for WindowsGetFeature {
     }
     
     fn execute(&self, subcommand: &SubCommand) -> AppResult<()> {
-        if let SubCommand::WindowsGet { pid, name, title, format, sort_pid, sort_position } = subcommand {
+        if let SubCommand::WindowsGet { pid, name, title, all, index, format, sort_pid, sort_position } = subcommand {
             self.handle_windows_get(
                 pid.clone(),
                 name.clone(), 
                 title.clone(),
+                *all,
+                index.clone(),
                 format.clone(),
                 *sort_pid,
                 *sort_position,
