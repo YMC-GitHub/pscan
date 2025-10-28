@@ -65,13 +65,15 @@ pub enum SubCommand {
         toggle: bool,
         off: bool,
     },
-    WindowsTransparency {  // 新增透明度子命令
+    WindowsTransparency {
         pid: Option<String>,
         name: Option<String>,
         title: Option<String>,
         all: bool,
+        index: Option<String>,
         level: u8,
         reset: bool,
+        sort_position: PositionSort,
     },
 }
 
