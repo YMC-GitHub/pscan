@@ -11,8 +11,10 @@ mod features;  // 新增特性模块
 mod error;     // 新增错误处理模块
 
 use std::process::exit;
-use output::{OutputFormat, display_processes};
-use cli::{parse_args, SubCommand};
+// use output::{OutputFormat, display_processes};
+// use cli::{parse_args, SubCommand};
+use output::display_processes;  // 移除 OutputFormat
+use cli::parse_args;            // 移除 SubCommand
 use process::{get_processes, filter_processes};
 use features::{create_default_manager, get_enabled_features};  // 新增
 use error::{AppError, AppResult};  // 新增

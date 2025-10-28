@@ -85,6 +85,19 @@ pub enum SubCommand {
         reset: bool,
         sort_position: PositionSort,
     },
+    WindowsResize {
+        pid: Option<String>,
+        name: Option<String>,
+        title: Option<String>,
+        all: bool,
+        index: Option<String>,
+        width: Option<String>,
+        height: Option<String>,
+        size: Option<String>,
+        keep_position: bool,
+        center: bool,
+        sort_position: PositionSort,
+    },
 }
 
 // 删除原来的 SortOrder 和 PositionSort 定义，因为它们已移动到 sorting.rs

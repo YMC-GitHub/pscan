@@ -40,6 +40,10 @@ impl UnixWindowData {
     pub fn set_transparency_impl(&self, _opacity: u8) -> AppResult<()> {
         Err(AppError::feature_not_supported("Window transparency operations"))
     }
+
+    pub fn resize_impl(&self, _width: i32, _height: i32, _keep_position: bool, _center: bool) -> AppResult<()> {
+        Err(AppError::feature_not_supported("Window resizing"))
+    }
 }
 
 // 修复这里：避免递归调用
@@ -70,6 +74,10 @@ impl PlatformWindow for UnixWindowData {
     
     fn set_transparency(&self, opacity: u8) -> AppResult<()> {
         self.set_transparency_impl(opacity)
+    }
+
+    fn resize(&self, width: i32, height: i32, keep_position: bool, center: bool) -> AppResult<()> {
+        self.resize_impl(width, height, keep_position, center)
     }
 }
 

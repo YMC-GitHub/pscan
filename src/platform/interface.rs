@@ -11,6 +11,8 @@ pub trait PlatformWindow {
     fn set_always_on_top(&self, on_top: bool) -> AppResult<()>;
     fn is_always_on_top(&self) -> AppResult<bool>;
     fn set_transparency(&self, opacity: u8) -> AppResult<()>;
+    fn resize(&self, width: i32, height: i32, keep_position: bool, center: bool) -> AppResult<()>;
+
 }
 
 /// 平台接口 trait
@@ -65,6 +67,9 @@ impl WindowHandle {
     
     pub fn set_transparency(&self, opacity: u8) -> AppResult<()> {
         self.platform_data.set_transparency(opacity)
+    }
+    pub fn resize(&self, width: i32, height: i32, keep_position: bool, center: bool) -> AppResult<()> {
+        self.platform_data.resize(width, height, keep_position, center)
     }
 }
 
@@ -138,6 +143,14 @@ impl PlatformWindow for PlatformData {
             PlatformData::Windows(data) => data.set_transparency(opacity),
             #[cfg(unix)]
             PlatformData::Unix(data) => data.set_transparency(opacity),
+        }
+    }
+    fn resize(&self, width: i32, height: i32, keep_position: bool, center: bool) -> AppResult<()> {
+        match self {
+            #[cfg(windows)]
+            PlatformData::Windows(data) => data.resize(width, height, keep_position, center),
+            #[cfg(unix)]
+            PlatformData::Unix(data) => data.resize(width, height, keep_position, center),
         }
     }
 }

@@ -9,6 +9,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::Win32::UI::WindowsAndMessaging::SetLayeredWindowAttributes;
 use windows::Win32::UI::WindowsAndMessaging::LWA_ALPHA;
 use windows::Win32::UI::WindowsAndMessaging::SetWindowLongW;
+use windows::Win32::UI::WindowsAndMessaging::GetSystemMetrics;  // 新增导入
+use windows::Win32::UI::WindowsAndMessaging::SM_CXSCREEN;       // 新增导入
+use windows::Win32::UI::WindowsAndMessaging::SM_CYSCREEN;       // 新增导入
 
 use crate::platform::interface::PlatformWindow;
 use crate::types::{WindowInfo, WindowRect};
@@ -176,6 +179,42 @@ impl WindowsWindowData {
             }
         }
     }
+    
+    pub fn resize(&self, width: i32, height: i32, keep_position: bool, center: bool) -> AppResult<()> {
+        unsafe {
+            let hwnd = HWND(self.hwnd);
+            if !IsWindowVisible(hwnd).as_bool() {
+                return Err(AppError::window_operation("Window not visible or invalid handle"));
+            }
+            
+            let mut rect = std::mem::zeroed();
+            if GetWindowRect(hwnd, &mut rect).is_err() {
+                return Err(AppError::platform("Failed to get window rect"));
+            }
+
+            let (x, y) = if keep_position {
+                (rect.left, rect.top)
+            } else if center {
+                // 获取屏幕尺寸并计算居中位置
+                let screen_width = GetSystemMetrics(SM_CXSCREEN);
+                let screen_height = GetSystemMetrics(SM_CYSCREEN);
+                ((screen_width - width) / 2, (screen_height - height) / 2)
+            } else {
+                (rect.left, rect.top)
+            };
+            
+            if SetWindowPos(
+                hwnd, 
+                HWND(0), 
+                x, y, width, height, 
+                SWP_NOZORDER | SWP_NOACTIVATE
+            ).is_ok() {
+                Ok(())
+            } else {
+                Err(AppError::window_operation("Failed to resize window"))
+            }
+        }
+    }
 }
 
 // 为 WindowsWindowData 实现 PlatformWindow trait
@@ -206,6 +245,9 @@ impl PlatformWindow for WindowsWindowData {
     
     fn set_transparency(&self, opacity: u8) -> AppResult<()> {
         self.set_transparency(opacity)
+    }
+    fn resize(&self, width: i32, height: i32, keep_position: bool, center: bool) -> AppResult<()> {
+        self.resize(width, height, keep_position, center)
     }
 }
 

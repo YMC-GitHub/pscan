@@ -1,17 +1,18 @@
-// src/features/mod.rs
 mod feature_trait;
 mod always_on_top;
 mod transparency;
 mod position_set;
 mod window_operations;
-mod windows_get;  // 新增
+mod windows_get;
+mod resize;  // 新增
 
 pub use feature_trait::Feature;
 pub use always_on_top::AlwaysOnTopFeature;
 pub use transparency::TransparencyFeature;
 pub use position_set::PositionSetFeature;
 pub use window_operations::WindowOperationsFeature;
-pub use windows_get::WindowsGetFeature;  // 新增
+pub use windows_get::WindowsGetFeature;
+pub use resize::ResizeFeature;  // 新增
 
 use std::collections::HashMap;
 use crate::error::AppResult;
@@ -112,6 +113,10 @@ pub fn create_default_manager() -> FeatureManager {
     #[cfg(feature = "position_set")]
     register_feature_if_supported(&mut manager, PositionSetFeature::new(), "position_set");
     
+    // 条件注册窗口调整大小特性
+    #[cfg(feature = "resize")]
+    register_feature_if_supported(&mut manager, ResizeFeature::new(), "resize");
+    
     manager
 }
 
@@ -142,6 +147,11 @@ pub fn get_enabled_features() -> Vec<&'static str> {
     #[cfg(feature = "position_set")]
     {
         features.push("position_set");
+    }
+    
+    #[cfg(feature = "resize")]
+    {
+        features.push("resize");
     }
     
     features

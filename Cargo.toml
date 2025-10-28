@@ -16,12 +16,13 @@ name = "pscan"
 path = "src/main.rs"
 
 [features]
-default = ["windows_get", "window_operations", "always_on_top", "transparency", "position_set"]  # 默认启用所有窗口功能
-windows_get = []  # 新增：窗口信息获取功能特性
-window_operations = []  # 窗口操作功能特性（最大化、最小化、还原）- 使用现有平台抽象层
+default = ["windows_get", "window_operations", "always_on_top", "transparency", "position_set", "resize"]  # 默认启用所有窗口功能
+windows_get = []  # 窗口信息获取功能特性
+window_operations = []  # 窗口操作功能特性（最大化、最小化、还原）
 always_on_top = ["windows"]  # 窗口置顶功能特性
 transparency = ["windows"]   # 窗口透明度功能特性
 position_set = ["windows"]   # 窗口位置设置功能特性
+resize = ["windows"]         # 窗口调整大小功能特性
 minimal = []                 # 最小功能集，不包含任何窗口操作功能
 
 [dependencies]
